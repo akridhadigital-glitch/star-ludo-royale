@@ -55,6 +55,7 @@ jobs:
       - run: flutter pub get
       - name: Analyze
         run: |
+          set -o pipefail
           code=0
           flutter analyze --no-fatal-infos 2>&1 | tee out.txt || code=$?
           if [ "$code" != "0" ]; then
@@ -65,6 +66,7 @@ jobs:
           exit $code
       - name: Test
         run: |
+          set -o pipefail
           code=0
           flutter test --reporter expanded 2>&1 | tee out.txt || code=$?
           if [ "$code" != "0" ]; then
@@ -77,6 +79,7 @@ jobs:
         env:
           API_URL: ${{ vars.API_URL || 'http://10.0.2.2:8080' }}
         run: |
+          set -o pipefail
           code=0
           flutter build apk --release --dart-define=API_URL=$API_URL 2>&1 | tee out.txt || code=$?
           if [ "$code" != "0" ]; then
@@ -85,7 +88,7 @@ jobs:
             echo "::error title=flutter build apk::$msg"
           fi
           exit $code
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: star-ludo-royale-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
