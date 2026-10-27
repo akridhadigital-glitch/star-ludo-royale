@@ -121,6 +121,10 @@ jobs:
           # Serve from any sub-path: drop the absolute <base href>
           sed -i 's#<base href="/">##' index.html
           sed -i 's#<title>.*</title>#<title>Star Ludo Royale</title>#' index.html
+          # GitHub Pages: serve files as-is (no Jekyll), drop unused renderer variants
+          touch .nojekyll
+          rm -rf canvaskit/skwasm* canvaskit/wimp* canvaskit/webparagraph
+          find . -name '*.symbols' -delete
       - name: Publish build to web-build branch
         run: |
           cd build/web
