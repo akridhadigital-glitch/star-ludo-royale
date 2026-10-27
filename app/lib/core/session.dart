@@ -22,13 +22,18 @@ class Session extends ChangeNotifier {
 
   Future<void> init() async {
     api.token = Storage.instance.authToken;
-    try {
+    // Web build has no Firebase config; Google sign-in is a mobile feature for now.
+    if (kIsWeb) {
+      firebaseReady = false;
+    } else {
+      try {
       // Reads android/app/google-services.json / ios GoogleService-Info.plist.
       // Missing config just disables Google sign-in.
       await Firebase.initializeApp();
       firebaseReady = true;
-    } catch (_) {
-      firebaseReady = false;
+      } catch (_) {
+        firebaseReady = false;
+      }
     }
     if (loggedIn) {
       refresh().catchError((_) {}); // offline is fine

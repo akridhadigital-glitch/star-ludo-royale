@@ -33,7 +33,7 @@ The Game is provided "as is" and "as available". We do not promise it will be er
 
 ## 7. Limitation of liability
 
-To the fullest extent permitted by law, we are not liable for indirect or consequential loss arising from use of the Game, including loss of progress or virtual items. Because the Game is free and involves no money, our total liability is limited to ₹0. Nothing here limits liability that cannot be limited under Indian law.
+To the fullest extent permitted by law, we are not liable for indirect or consequential loss arising from use of the Game, including loss of progress or virtual items. Because the Game is free and involves no money, our total liability is limited to INR 0. Nothing here limits liability that cannot be limited under Indian law.
 
 ## 8. Changes and termination
 

@@ -110,7 +110,7 @@ const _terms = <(String, String)>[
       'Ludo is a traditional board game. The Star Ludo Royale name, logo, artwork, sounds and code belong to ${LegalInfo.operatorName}. The Game is independent and is not affiliated with, endorsed by or connected to any other Ludo app or its owners.'),
   ('6. No warranty', 'The Game is provided "as is" and "as available". We do not promise it will be error-free or always online. Online features may change or be discontinued.'),
   ('7. Limitation of liability',
-      'To the fullest extent permitted by law, we are not liable for indirect or consequential loss arising from use of the Game, including loss of progress or virtual items. Because the Game is free and involves no money, our total liability is limited to ₹0. Nothing here limits liability that cannot be limited under Indian law.'),
+      'To the fullest extent permitted by law, we are not liable for indirect or consequential loss arising from use of the Game, including loss of progress or virtual items. Because the Game is free and involves no money, our total liability is limited to INR 0. Nothing here limits liability that cannot be limited under Indian law.'),
   ('8. Changes and termination', 'We may update the Game or these Terms. Continuing to play after an update means you accept the new Terms. You may stop using the Game and delete your account at any time.'),
   ('9. Governing law', 'These Terms are governed by the laws of India. Courts at ${LegalInfo.city}, India have exclusive jurisdiction.'),
   ('10. Contact', '${LegalInfo.operatorName} · ${LegalInfo.contactEmail}'),

@@ -473,7 +473,7 @@ class _ResultDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final medals = ['🥇', '🥈', '🥉', '4️⃣'];
+    final medals = ['🥇', '🥈', '🥉', '🎖'];
     final winnerSeat = controller.seatOf(result.winner);
     final title = result.hasMe ? (result.iWon ? 'You Win!' : '${winnerSeat.name} Wins!') : '${winnerSeat.name} Wins!';
     final reward = result.reward;

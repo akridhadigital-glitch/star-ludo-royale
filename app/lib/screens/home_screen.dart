@@ -118,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                               constraints: const BoxConstraints(maxWidth: 120),
                               child: Text(s.displayName, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
                             ),
-                            const Text('Profile ✏️', style: TextStyle(color: Palette.gold2, fontSize: 11)),
+                            const Text('Profile ✏', style: TextStyle(color: Palette.gold2, fontSize: 11)),
                           ]),
                         ]),
                       ),
@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   const SizedBox(height: 22),
                   if (saved != null) ...[
                     BigButton(
-                      icon: '▶️',
+                      icon: '▶',
                       title: 'Continue Match',
                       subtitle: saved,
                       dark: true,

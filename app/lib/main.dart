@@ -27,6 +27,9 @@ class StarLudoApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
+        // Bundled fonts: same look on every device, and no font downloads on the web.
+        fontFamily: 'Fredoka',
+        fontFamilyFallback: const ['NotoColorEmoji', 'NotoSansSymbols2', 'NotoSansSymbols'],
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Palette.bg3,
         colorScheme: ColorScheme.fromSeed(seedColor: Palette.gold2, brightness: Brightness.dark),
