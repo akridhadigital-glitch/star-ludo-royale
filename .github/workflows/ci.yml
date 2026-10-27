@@ -22,8 +22,8 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with: { node-version: 22, cache: npm, cache-dependency-path: server/package-lock.json }
       - run: npm ci
       - run: npm run typecheck
@@ -39,8 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: app } }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: '17' }
       - uses: subosito/flutter-action@v2
         with: { channel: stable, cache: true }
@@ -53,10 +53,38 @@ jobs:
             rm -f test/widget_test.dart
           fi
       - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos
-      - run: flutter test
+      - name: Analyze
+        run: |
+          code=0
+          flutter analyze --no-fatal-infos 2>&1 | tee out.txt || code=$?
+          if [ "$code" != "0" ]; then
+            msg=$(grep -E "error|warning" out.txt | head -80 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            [ -z "$msg" ] && msg=$(tail -60 out.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=flutter analyze::$msg"
+          fi
+          exit $code
+      - name: Test
+        run: |
+          code=0
+          flutter test --reporter expanded 2>&1 | tee out.txt || code=$?
+          if [ "$code" != "0" ]; then
+            msg=$(grep -E "Error|error|Expected|Actual|FAILED|failed|\\[E\\]" out.txt | head -80 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            [ -z "$msg" ] && msg=$(tail -60 out.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=flutter test::$msg"
+          fi
+          exit $code
       - name: Build release APK
-        run: flutter build apk --release --dart-define=API_URL=${{ vars.API_URL || 'http://10.0.2.2:8080' }}
+        env:
+          API_URL: ${{ vars.API_URL || 'http://10.0.2.2:8080' }}
+        run: |
+          code=0
+          flutter build apk --release --dart-define=API_URL=$API_URL 2>&1 | tee out.txt || code=$?
+          if [ "$code" != "0" ]; then
+            msg=$(grep -E "rror|FAIL|What went wrong|Exception" out.txt | head -80 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            [ -z "$msg" ] && msg=$(tail -60 out.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+            echo "::error title=flutter build apk::$msg"
+          fi
+          exit $code
       - uses: actions/upload-artifact@v4
         with:
           name: star-ludo-royale-apk
