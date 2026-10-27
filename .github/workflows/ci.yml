@@ -93,3 +93,38 @@ jobs:
           name: star-ludo-royale-apk
           path: app/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
+
+  web:
+    runs-on: ubuntu-latest
+    needs: app
+    if: github.ref == 'refs/heads/main'
+    permissions: { contents: write }
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - name: Create web platform folder if missing
+        run: |
+          if [ ! -d web ]; then
+            flutter create . --project-name star_ludo_royale --org com.starludoroyale --platforms web
+            git checkout -- test lib pubspec.yaml 2>/dev/null || true
+            rm -f test/widget_test.dart
+          fi
+      - run: flutter pub get
+      - name: Build web
+        env:
+          API_URL: ${{ vars.API_URL || 'http://localhost:8080' }}
+        run: |
+          flutter build web --release --no-web-resources-cdn --pwa-strategy=none --dart-define=API_URL=$API_URL
+          cd build/web
+          # Serve from any sub-path: drop the absolute <base href>
+          sed -i 's#<base href="/">##' index.html
+          sed -i 's#<title>.*</title>#<title>Star Ludo Royale</title>#' index.html
+      - name: Publish build to web-build branch
+        run: |
+          cd build/web
+          git init -q -b web-build
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "web build ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" web-build
