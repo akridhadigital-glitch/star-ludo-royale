@@ -205,8 +205,8 @@ abstract class MatchController extends ChangeNotifier {
     Sound.instance.play(Sfx.roll);
     _notify();
     final rnd = Random();
-    final end = DateTime.now().add(Duration(milliseconds: ms ?? rollMs));
-    while (DateTime.now().isBefore(end) && !disposed) {
+    final frames = ((ms ?? rollMs) / 70).ceil();
+    for (var i = 0; i < frames && !disposed; i++) {
       shownDice = 1 + rnd.nextInt(6);
       _notify();
       await _wait(70);
