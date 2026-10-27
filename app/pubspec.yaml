@@ -1,0 +1,27 @@
+name: star_ludo_royale
+description: Star Ludo Royale — classic Ludo with smooth play, bots, pass & play and online rooms.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  socket_io_client: ^2.0.3+1
+  audioplayers: ^6.1.0
+  firebase_core: ^4.1.0
+  firebase_auth: ^6.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/sfx/

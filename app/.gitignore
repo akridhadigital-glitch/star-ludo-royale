@@ -1,0 +1,10 @@
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+# Firebase config is per-project; each developer adds their own
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist

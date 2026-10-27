@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: server } }
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: ludo, POSTGRES_PASSWORD: ludo, POSTGRES_DB: ludo_test }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ludo" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: server/package-lock.json }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+        env:
+          TEST_DATABASE_URL: postgres://ludo:ludo@localhost:5432/ludo_test
+          TEST_REDIS_URL: redis://localhost:6379
+      - run: npm run build
+      - name: Docker image builds
+        run: docker build -t star-ludo-royale-server .
+
+  app:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter --version
+      - name: Create platform folders if missing
+        run: |
+          if [ ! -d android ]; then
+            flutter create . --project-name star_ludo_royale --org com.starludoroyale --platforms android,ios
+            git checkout -- test lib pubspec.yaml 2>/dev/null || true
+            rm -f test/widget_test.dart
+          fi
+      - run: flutter pub get
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+      - name: Build release APK
+        run: flutter build apk --release --dart-define=API_URL=${{ vars.API_URL || 'http://10.0.2.2:8080' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: star-ludo-royale-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
