@@ -30,10 +30,6 @@ class StarLudoApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Palette.bg3,
         colorScheme: ColorScheme.fromSeed(seedColor: Palette.gold2, brightness: Brightness.dark),
-        pageTransitionsTheme: const PageTransitionsTheme(builders: {
-          TargetPlatform.android: ZoomPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-        }),
       ),
       home: const SplashScreen(),
     );
