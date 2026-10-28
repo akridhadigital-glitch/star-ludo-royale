@@ -3,7 +3,7 @@ import { loadConfig, type Config } from './config.js';
 import { createDb, migrate } from './db/db.js';
 import { Tokens, createFirebaseVerifier, type GoogleVerifier } from './auth.js';
 import { UserRepo } from './users.js';
-import { MemoryRoomStore, RedisRoomStore } from './rooms/roomStore.js';
+import { PgRoomStore, RedisRoomStore } from './rooms/roomStore.js';
 import { RoomManager, type Room, type RoomEmitter } from './rooms/roomManager.js';
 import { buildHttp } from './http.js';
 import { attachSocketHandlers, createIo, ioEmitter } from './socket.js';
@@ -43,6 +43,15 @@ export async function startServer(config: Config, o: ServerOverrides = {}) {
   const db = createDb(config.DATABASE_URL);
   await migrate(db);
   const redis = config.REDIS_URL ? new Redis(config.REDIS_URL, { maxRetriesPerRequest: 3 }) : null;
+  // Live matches are snapshotted on every move: in Redis if configured, otherwise in Postgres.
+  // Either way a restart/redeploy doesn't end games in progress.
+  let roomStore;
+  if (redis) roomStore = new RedisRoomStore(redis);
+  else {
+    const pgStore = new PgRoomStore(db);
+    await pgStore.prune().catch(() => {});
+    roomStore = pgStore;
+  }
   const users = new UserRepo(db);
   const tokens = new Tokens(config.JWT_SECRET);
   const google = o.google !== undefined ? o.google
@@ -58,7 +67,7 @@ export async function startServer(config: Config, o: ServerOverrides = {}) {
   };
   let log: (m: string, e?: unknown) => void = (m, e) => console.error(m, e);
   const rooms = new RoomManager({
-    store: redis ? new RedisRoomStore(redis) : new MemoryRoomStore(), emitter, recordMatch: recordMatchWith(users),
+    store: roomStore, emitter, recordMatch: recordMatchWith(users),
     turnMs: o.turnMs ?? config.TURN_SECONDS * 1000, awayMs: o.awayMs, rollDice: o.rollDice, log: (m, e) => log(m, e),
   });
 

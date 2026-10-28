@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../engine/engine.dart';
@@ -115,6 +116,21 @@ class OnlineService extends ChangeNotifier {
 
   io.Socket? _socket;
   bool connected = false;
+  AppLifecycleListener? _lifecycle;
+
+  /// Back from WhatsApp / a locked screen: reconnect right away and re-sync the room,
+  /// instead of waiting for the socket's retry back-off.
+  void _wake() {
+    final s = _socket;
+    if (s == null) return;
+    if (!s.connected) {
+      s.connect();
+    } else if (room != null) {
+      call('room:resume').then((res) {
+        if (res['room'] != null) _setRoom(res['room'] as Map<String, dynamic>);
+      }).catchError((_) {});
+    }
+  }
   RoomInfo? room;
   final _events = StreamController<GameEventsPayload>.broadcast();
   final _chat = StreamController<(String userId, String id)>.broadcast();
@@ -134,6 +150,7 @@ class OnlineService extends ChangeNotifier {
   Future<void> connect() async {
     if (_socket != null && connected) return;
     await Session.instance.ensureLoggedIn();
+    _lifecycle ??= AppLifecycleListener(onResume: _wake, onShow: _wake);
     _socket?.dispose();
     final completer = Completer<void>();
     final s = io.io(

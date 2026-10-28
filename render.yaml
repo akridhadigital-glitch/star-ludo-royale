@@ -13,6 +13,9 @@ services:
     region: singapore
     healthCheckPath: /health
     autoDeploy: true
+    buildFilter:          # don't restart the game server for website/app-only changes
+      paths:
+        - server/**
     envVars:
       - key: NODE_ENV
         value: production

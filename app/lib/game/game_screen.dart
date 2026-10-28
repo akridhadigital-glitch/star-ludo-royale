@@ -329,7 +329,7 @@ class _GameScreenState extends State<GameScreen> {
         pieces.add((
           AnimatedPositioned(
             key: ValueKey(key),
-            duration: Duration(milliseconds: flying ? 480 : c.stepMs),
+            duration: Duration(milliseconds: flying ? 480 : c.animStepMs),
             curve: flying ? Curves.easeInOutCubic : Curves.easeOutCubic,
             left: left,
             top: top,
@@ -342,7 +342,7 @@ class _GameScreenState extends State<GameScreen> {
                 child: SizedBox(
                   width: u * scale,
                   height: u * scale,
-                  child: TokenPiece(color: color, hop: c.hops[key] ?? 0, movable: isMovable, hopMs: c.stepMs),
+                  child: TokenPiece(color: color, hop: c.hops[key] ?? 0, movable: isMovable, hopMs: c.animStepMs),
                 ),
               ),
             ),

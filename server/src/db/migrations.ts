@@ -43,4 +43,20 @@ export const migrations: { id: string; sql: string }[] = [
       CREATE UNIQUE INDEX users_name_lower_uniq ON users (lower(name));
     `,
   },
+  {
+    id: '003_live_rooms',
+    sql: `
+      -- Live match snapshots, so games resume after a server restart even without Redis.
+      CREATE TABLE live_rooms (
+        code        TEXT PRIMARY KEY,
+        data        JSONB NOT NULL,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+      CREATE TABLE live_user_rooms (
+        user_id     UUID PRIMARY KEY,
+        code        TEXT NOT NULL,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `,
+  },
 ];

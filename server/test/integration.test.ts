@@ -24,8 +24,8 @@ const fakeGoogle = {
   },
 };
 
-async function boot(overrides: Parameters<typeof startServer>[1] = {}) {
-  const config = loadConfig({ DATABASE_URL: DB!, REDIS_URL: REDIS!, JWT_SECRET: 'x'.repeat(40), PORT: '0', NODE_ENV: 'test' } as any);
+async function boot(overrides: Parameters<typeof startServer>[1] = {}, opts: { redis?: boolean } = {}) {
+  const config = loadConfig({ DATABASE_URL: DB!, ...(opts.redis === false ? {} : { REDIS_URL: REDIS! }), JWT_SECRET: 'x'.repeat(40), PORT: '0', NODE_ENV: 'test' } as any);
   const s = await startServer(config, { google: fakeGoogle, turnMs: 600, awayMs: 30, authRateLimit: 1000, ...overrides });
   const addr = s.http.server.address() as { port: number };
   return { s, url: `http://127.0.0.1:${addr.port}` };
@@ -135,9 +135,11 @@ run('online play (Postgres + Redis)', () => {
     await waitFor(() => a.room?.status === 'playing' && b.room?.status === 'playing');
     expect(a.room.members.map((m: any) => m.color)).toEqual(['red', 'yellow']);
 
-    // Out-of-turn actions are rejected by the referee
-    expect((await b.emit('game:roll')).error).toBe('not_your_turn');
-    expect((await a.emit('game:move', { token: 0 })).error).toBe('not_move_phase');
+    // Out-of-turn actions are rejected by the referee (first player is random)
+    const firstIsA = a.room.members.find((m: any) => m.color === a.room.game.players[a.room.game.turn]).userId === A.user.id;
+    const [mover, waiter] = firstIsA ? [a, b] : [b, a];
+    expect((await waiter.emit('game:roll')).error).toBe('not_your_turn');
+    expect((await mover.emit('game:move', { token: 0 })).error).toBe('not_move_phase');
 
     const stopA = autoplay(a), stopB = autoplay(b);
     await waitFor(() => a.room?.status === 'finished' && b.room?.status === 'finished', 60000);
@@ -223,6 +225,7 @@ run('online play (Postgres + Redis)', () => {
     await b.emit('room:join', { code: room.code });
     await a.emit('room:start');
     await waitFor(() => a.room?.status === 'playing');
+    const startedAt = Date.now();
 
     const stopA = autoplay(a); // A plays normally; B is connected but never taps
     await waitFor(() => a.room?.status === 'finished', 25000);
@@ -235,8 +238,8 @@ run('online play (Postgres + Redis)', () => {
     expect(autoRolls.length).toBe(2);
     // Every one of B's auto-rolls waited the FULL turn (600 ms in tests), never the quick 30 ms.
     for (const r of autoRolls) {
-      const prev = a.events.filter(e => e.at < r.at).at(-1);
-      expect(r.at - prev.at).toBeGreaterThanOrEqual(550);
+      const prevAt = a.events.filter(e => e.at < r.at).at(-1)?.at ?? startedAt; // B may go first (random)
+      expect(r.at - prevAt).toBeGreaterThanOrEqual(550);
     }
     a.sock.close(); b.sock.close();
   }, 30000);
@@ -289,6 +292,36 @@ run('online play (Postgres + Redis)', () => {
     expect(r.room.code).toBe(room.code);
     expect(r.room.status).toBe('playing');
     a2.sock.close();
+  }, 30000);
+
+  it('without Redis, a match survives a server restart (snapshots in Postgres)', async () => {
+    await srv.close();
+    let b2 = await boot({}, { redis: false });
+    srv = b2.s; base = b2.url;
+    const A = await guest('PgA'); const B = await guest('PgB');
+    const a = await connect(A.token, A.user.id); const b = await connect(B.token, B.user.id);
+    const { room } = await a.emit('room:create', { maxPlayers: 2 });
+    await b.emit('room:join', { code: room.code });
+    await a.emit('room:start');
+    await waitFor(() => a.room?.status === 'playing');
+    const moveNo = a.room.game.moveNo;
+    a.sock.close(); b.sock.close();
+
+    await srv.close(); // redeploy
+    b2 = await boot({}, { redis: false });
+    srv = b2.s; base = b2.url;
+    const a2 = await connect(A.token, A.user.id);
+    const r = await a2.emit('room:resume');
+    expect(r.ok).toBe(true);
+    expect(r.room.code).toBe(room.code);
+    expect(r.room.status).toBe('playing');
+    expect(r.room.game.moveNo).toBeGreaterThanOrEqual(moveNo);
+    a2.sock.close();
+
+    // back to the Redis-backed server for the remaining tests
+    await srv.close();
+    b2 = await boot();
+    srv = b2.s; base = b2.url;
   }, 30000);
 
   it('links Google to a guest account without losing progress', async () => {

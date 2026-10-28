@@ -80,6 +80,13 @@ abstract class MatchController extends ChangeNotifier {
   bool get isOnline;
   int get stepMs => 170;
   int get rollMs => 520;
+
+  /// 1.0 = normal speed. When moves pile up (slow network, fast opponent) the backlog
+  /// plays faster so the board catches up instead of lagging further behind.
+  double tempo = 1.0;
+
+  /// Duration the board uses to slide a token one square (follows [tempo]).
+  int get animStepMs => (stepMs * tempo).round().clamp(40, 400);
   bool get isMyTurn;
 
   Seat seatOf(LudoColor c) => seats.firstWhere((s) => s.color == c);
@@ -107,7 +114,10 @@ abstract class MatchController extends ChangeNotifier {
   Future<void> _drain() async {
     _draining = true;
     while (_queue.isNotEmpty && !disposed) {
-      await _play(_queue.removeFirst());
+      final b = _queue.removeFirst();
+      tempo = _queue.isNotEmpty ? 0.35 : 1.0; // more already waiting behind this one → catch up
+      await _play(b);
+      tempo = 1.0;
     }
     _draining = false;
     if (!disposed) onSettled();
@@ -118,7 +128,7 @@ abstract class MatchController extends ChangeNotifier {
     hops[k] = (hops[k] ?? 0) + 1;
   }
 
-  Future<void> _wait(int ms) => Future.delayed(Duration(milliseconds: ms));
+  Future<void> _wait(int ms) => Future.delayed(Duration(milliseconds: (ms * tempo).round()));
 
   void _notify() {
     if (!disposed) notifyListeners();
@@ -205,7 +215,7 @@ abstract class MatchController extends ChangeNotifier {
     Sound.instance.play(Sfx.roll);
     _notify();
     final rnd = Random();
-    final frames = ((ms ?? rollMs) / 70).ceil();
+    final frames = (((ms ?? rollMs) * tempo) / 70).ceil().clamp(1, 20);
     for (var i = 0; i < frames && !disposed; i++) {
       shownDice = 1 + rnd.nextInt(6);
       _notify();
@@ -469,6 +479,12 @@ class OnlineMatchController extends MatchController {
     });
     online.addListener(_onRoom);
     _lastMoveNo = state.moveNo;
+    if (state.moveNo == 0) {
+      // Fresh match: say who the server randomly picked to start.
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (!disposed) emitToast(BoardToast('🎲 ${seatOf(state.current).name} goes first!', state.current));
+      });
+    }
     final d = online.room?.deadline;
     if (d != null) deadline = DateTime.fromMillisecondsSinceEpoch(d);
     onSettled();
@@ -501,6 +517,9 @@ class OnlineMatchController extends MatchController {
   @override
   bool get isOnline => true;
 
+  @override
+  int get stepMs => 150;
+
   LudoColor? get myColor => online.myColor;
 
   @override
@@ -528,7 +547,7 @@ class OnlineMatchController extends MatchController {
       _optimisticRoll = false;
       return super.animateRoll(value, color, ms: 220);
     }
-    return super.animateRoll(value, color, ms: color == myColor ? 400 : 480);
+    return super.animateRoll(value, color, ms: 380);
   }
 
   void _onRoom() {

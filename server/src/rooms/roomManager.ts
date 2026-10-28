@@ -190,6 +190,8 @@ export class RoomManager {
     const colors = seatColors(room.members.length);
     room.members.forEach((m, i) => { m.color = colors[i]; m.missed = 0; });
     room.game = createGame(colors);
+    // Who goes first is random (crypto RNG) — the room creator gets no head start.
+    room.game.turn = randomInt(colors.length);
     room.status = 'playing';
     room.startedAt = this.now();
     this.schedule(room);
