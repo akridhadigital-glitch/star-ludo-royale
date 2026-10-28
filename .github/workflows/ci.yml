@@ -77,7 +77,7 @@ jobs:
           exit $code
       - name: Build release APK
         env:
-          API_URL: ${{ vars.API_URL || 'http://10.0.2.2:8080' }}
+          API_URL: ${{ vars.API_URL || 'https://star-ludo-server.onrender.com' }}
         run: |
           set -o pipefail
           code=0
@@ -114,7 +114,7 @@ jobs:
       - run: flutter pub get
       - name: Build web
         env:
-          API_URL: ${{ vars.API_URL || 'http://localhost:8080' }}
+          API_URL: ${{ vars.API_URL || 'https://star-ludo-server.onrender.com' }}
         run: |
           flutter build web --release --no-web-resources-cdn --pwa-strategy=none --dart-define=API_URL=$API_URL
           cd build/web
@@ -132,3 +132,24 @@ jobs:
           git add -A
           git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "web build ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" web-build
+
+  live-smoke:
+    runs-on: ubuntu-latest
+    needs: server
+    if: github.ref == 'refs/heads/main'
+    defaults: { run: { working-directory: server } }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm, cache-dependency-path: server/package-lock.json }
+      - run: npm ci
+      - name: Smoke test the deployed server
+        env:
+          API_URL: ${{ vars.API_URL || 'https://star-ludo-server.onrender.com' }}
+        run: |
+          set -o pipefail
+          code=0
+          node scripts/live-smoke.mjs "$API_URL" 2>&1 | tee out.txt || code=$?
+          msg=$(tail -40 out.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          if [ "$code" != "0" ]; then echo "::error title=live smoke::$msg"; else echo "::notice title=live smoke::$msg"; fi
+          exit $code
