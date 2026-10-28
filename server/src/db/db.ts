@@ -6,7 +6,16 @@ export type Db = pg.Pool;
 export function createDb(url: string): Db {
   // Hosted Postgres (Neon, Supabase, Render…) needs TLS; local/docker Postgres doesn't.
   const local = /@(localhost|127\.0\.0\.1|postgres)(:|\/)/.test(url);
-  return new pg.Pool({ connectionString: url, max: 10, ssl: local || /sslmode=disable/.test(url) ? undefined : { rejectUnauthorized: false } });
+  const pool = new pg.Pool({
+    connectionString: url,
+    max: 10,
+    idleTimeoutMillis: 30_000,
+    ssl: local || /sslmode=disable/.test(url) ? undefined : { rejectUnauthorized: false },
+  });
+  // Hosted databases drop idle connections (Neon suspends after 5 min). Without this handler
+  // an idle client's error is unhandled and crashes the whole process; the pool reconnects on next use.
+  pool.on('error', err => { console.error('postgres idle client error (recovering):', err.message); });
+  return pool;
 }
 
 export async function migrate(db: Db): Promise<void> {

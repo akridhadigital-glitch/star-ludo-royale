@@ -17,7 +17,8 @@ export function createIo(httpServer: HttpServer, corsOrigin: string): Server {
     cors: { origin: corsOrigin === '*' ? true : corsOrigin.split(',') },
     pingInterval: 10000,
     pingTimeout: 8000,
-    connectionStateRecovery: { maxDisconnectionDuration: 60_000 },
+    // No connectionStateRecovery: it appends an offset argument to every broadcast, which the
+    // Dart socket client delivers as part of the payload. The app re-attaches via `room:resume`.
   });
 }
 

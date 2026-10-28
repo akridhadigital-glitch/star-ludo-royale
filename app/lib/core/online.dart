@@ -159,9 +159,9 @@ class OnlineService extends ChangeNotifier {
     s.onConnectError((err) {
       if (!completer.isCompleted) completer.completeError(Exception('connect_failed'));
     });
-    s.on('room:update', (data) => _setRoom(_deepCast(data as Map)));
+    s.on('room:update', (data) => _setRoom(_payload(data)));
     s.on('game:events', (data) {
-      final j = _deepCast(data as Map);
+      final j = _payload(data);
       _events.add(GameEventsPayload(
         (j['events'] as List).map((e) => GameEvent.fromJson(e as Map<String, dynamic>)).toList(),
         GameState.fromJson(j['game'] as Map<String, dynamic>),
@@ -170,7 +170,7 @@ class OnlineService extends ChangeNotifier {
       ));
     });
     s.on('chat:message', (data) {
-      final j = _deepCast(data as Map);
+      final j = _payload(data);
       _chat.add((j['userId'] as String, j['id'] as String));
     });
     s.connect();
@@ -180,6 +180,13 @@ class OnlineService extends ChangeNotifier {
   void _setRoom(Map<String, dynamic> j) {
     room = RoomInfo.fromJson(_deepCast(j));
     notifyListeners();
+  }
+
+  /// Event payload: some servers append extra args (e.g. a recovery offset) and the
+  /// Dart client then delivers a List. Always take the first Map.
+  static Map<String, dynamic> _payload(dynamic data) {
+    if (data is List) data = data.firstWhere((e) => e is Map, orElse: () => const {});
+    return _deepCast(data as Map);
   }
 
   /// Socket.io JSON arrives as Map<dynamic, dynamic>; normalise the whole tree.

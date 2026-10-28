@@ -63,7 +63,9 @@ class Session extends ChangeNotifier {
         if (e.status != 401) rethrow;
       }
     }
-    final (token, p) = await api.guestLogin(Storage.instance.deviceId, Storage.instance.localName);
+    // Only send a name the player chose; otherwise the server assigns a unique one (e.g. Player4821).
+    final chosen = Storage.instance.localName;
+    final (token, p) = await api.guestLogin(Storage.instance.deviceId, chosen == 'Player' ? null : chosen);
     _setAuth(token, p);
     if (Storage.instance.localAvatar != 0 && p.avatar != Storage.instance.localAvatar) {
       profile = await api.updateProfile(avatar: Storage.instance.localAvatar);
