@@ -15,6 +15,8 @@ dependencies:
   audioplayers: ^6.1.0
   firebase_core: ^4.1.0
   firebase_auth: ^6.0.2
+  url_launcher: ^6.3.1
+  share_plus: ">=10.1.0 <11.0.0"
 
 dev_dependencies:
   flutter_test:

@@ -15,8 +15,10 @@ type Ack = (res: Record<string, unknown>) => void;
 export function createIo(httpServer: HttpServer, corsOrigin: string): Server {
   return new Server(httpServer, {
     cors: { origin: corsOrigin === '*' ? true : corsOrigin.split(',') },
-    pingInterval: 10000,
-    pingTimeout: 8000,
+    // Phones throttle background tabs/apps (e.g. while sharing the code on WhatsApp);
+    // a generous heartbeat avoids dropping players for a brief switch away.
+    pingInterval: 25000,
+    pingTimeout: 60000,
     // No connectionStateRecovery: it appends an offset argument to every broadcast, which the
     // Dart socket client delivers as part of the payload. The app re-attaches via `room:resume`.
   });
@@ -46,6 +48,11 @@ export function attachSocketHandlers(io: Server, deps: { tokens: Tokens; users: 
 
   io.on('connection', (socket: Socket) => {
     const me = socket.data.user as { userId: string; name: string; avatar: number };
+    // Name/avatar can change after the socket connected (Profile → Save); refresh before entering a room.
+    const refreshMe = async () => {
+      const u = await deps.users.byId(me.userId).catch(() => null);
+      if (u) { me.name = u.name; me.avatar = u.avatar; }
+    };
 
     const bind = async (code: string) => {
       const prev = socket.data.roomCode as string | undefined;
@@ -93,12 +100,14 @@ export function attachSocketHandlers(io: Server, deps: { tokens: Tokens; users: 
     };
 
     on('room:create', z.object({ maxPlayers: z.number().int() }), async p => {
+      await refreshMe();
       const room = await rooms.create(me, p.maxPlayers);
       await bind(room.code);
       return { room: roomView(room) };
     });
 
     on('room:join', code, async p => {
+      await refreshMe();
       const room = await rooms.join(me, p.code);
       await bind(room.code);
       return { room: roomView(room) };

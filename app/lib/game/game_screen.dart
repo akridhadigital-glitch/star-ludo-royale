@@ -220,9 +220,13 @@ class _GameScreenState extends State<GameScreen> {
     );
     final info = Expanded(
       child: Column(crossAxisAlignment: mirrored ? CrossAxisAlignment.end : CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Text(seat.kind == SeatKind.me && c.isOnline ? '${seat.name} (you)' : seat.name,
-            maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
-        Text(status, style: const TextStyle(color: Palette.muted, fontSize: 11, fontWeight: FontWeight.w600)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: mirrored ? Alignment.centerRight : Alignment.centerLeft,
+          child: Text(seat.name, maxLines: 1, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+        ),
+        Text(seat.kind == SeatKind.me && c.isOnline ? 'You · $status' : status,
+            maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Palette.muted, fontSize: 11, fontWeight: FontWeight.w600)),
       ]),
     );
     final dice = SizedBox(
@@ -381,6 +385,8 @@ class _GameScreenState extends State<GameScreen> {
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            if (c.isOnline && !OnlineService.instance.connected)
+              const Text('📡 Reconnecting… your turn is kept', style: TextStyle(color: Color(0xFFFCA5A5), fontWeight: FontWeight.w700, fontSize: 13)),
             Text(c.hint, style: const TextStyle(color: Palette.gold1, fontWeight: FontWeight.w700, fontSize: 15)),
             if (c.bonusText.isNotEmpty)
               Text(c.bonusText, style: const TextStyle(color: Palette.emerald, fontWeight: FontWeight.w600, fontSize: 12)),

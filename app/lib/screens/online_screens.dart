@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/api.dart';
+import '../core/config.dart';
 import '../core/online.dart';
 import '../core/palette.dart';
 import '../core/session.dart';
@@ -12,7 +15,10 @@ import '../widgets/common.dart';
 
 /// Create or join a private room.
 class OnlineMenuScreen extends StatefulWidget {
-  const OnlineMenuScreen({super.key});
+  const OnlineMenuScreen({super.key, this.joinCode});
+
+  /// From an invite link: join this room as soon as we're connected.
+  final String? joinCode;
   @override
   State<OnlineMenuScreen> createState() => _OnlineMenuScreenState();
 }
@@ -46,7 +52,12 @@ class _OnlineMenuScreenState extends State<OnlineMenuScreen> {
       final room = await OnlineService.instance.resume();
       if (!mounted) return;
       setState(() => _connecting = false);
-      if (room != null) _openRoom(room);
+      if (room != null) {
+        _openRoom(room);
+      } else if (widget.joinCode != null) {
+        _code.text = widget.joinCode!;
+        _run(() => OnlineService.instance.joinRoom(widget.joinCode!));
+      }
     } on ApiException catch (_) {
       if (mounted) setState(() => _error = 'Can\'t reach the game server. Check your internet and try again.');
     } catch (_) {
@@ -279,6 +290,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         ]),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    _ShareRow(code: room.code),
                     const SizedBox(height: 20),
                     for (var i = 0; i < room.maxPlayers; i++) _slot(room, i, colors),
                     const SizedBox(height: 16),
@@ -344,6 +357,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
         Expanded(
           child: Text(
             m == null ? 'Waiting for player…' : '${m.name}${m.userId == online.myUserId ? ' (you)' : ''}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(color: m == null ? Palette.muted : Colors.white, fontWeight: FontWeight.w800),
           ),
         ),
@@ -352,5 +367,65 @@ class _LobbyScreenState extends State<LobbyScreen> {
         if (m != null && !m.connected) const Padding(padding: EdgeInsets.only(left: 8), child: Text('offline', style: TextStyle(color: Palette.muted, fontSize: 12))),
       ]),
     );
+  }
+}
+
+/// Invite friends: WhatsApp, the phone's share sheet, or a copied link.
+/// The link opens the website and joins this room automatically.
+class _ShareRow extends StatelessWidget {
+  const _ShareRow({required this.code});
+  final String code;
+
+  String get _message =>
+      'Join my Star Ludo Royale game! \u{1F3B2}\nRoom code: $code\nTap to join: ${AppConfig.inviteLink(code)}';
+
+  Future<void> _whatsApp(BuildContext context) async {
+    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_message)}');
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication).catchError((_) => false);
+    if (!ok && context.mounted) showSnack(context, 'Could not open WhatsApp');
+  }
+
+  Future<void> _share(BuildContext context) async {
+    try {
+      await Share.share(_message, subject: 'Play Star Ludo Royale with me');
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: _message));
+      if (context.mounted) showSnack(context, 'Invite copied — paste it anywhere');
+    }
+  }
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: AppConfig.inviteLink(code)));
+    if (context.mounted) showSnack(context, 'Invite link copied');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget btn(String icon, String label, Color bg, VoidCallback onTap) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Material(
+              color: bg,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  child: Column(children: [
+                    Text(icon, style: const TextStyle(fontSize: 20)),
+                    const SizedBox(height: 2),
+                    Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        );
+    return Row(children: [
+      btn('\u{1F4AC}', 'WhatsApp', const Color(0xFF16A34A), () => _whatsApp(context)),
+      btn('\u{1F4E4}', 'Share', const Color(0xFF2563EB), () => _share(context)),
+      btn('\u{1F517}', 'Copy link', const Color(0xFF334155), () => _copy(context)),
+    ]);
   }
 }

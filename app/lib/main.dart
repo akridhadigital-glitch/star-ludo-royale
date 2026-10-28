@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'core/online.dart';
 import 'core/palette.dart';
 import 'core/storage.dart';
 import 'screens/splash_screen.dart';
@@ -8,6 +10,10 @@ import 'screens/splash_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Storage.init();
+  if (kIsWeb) {
+    final code = Uri.base.queryParameters['room']?.trim().toUpperCase();
+    if (code != null && RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) pendingJoinCode = code;
+  }
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,

@@ -22,7 +22,11 @@ class HttpError extends Error {
 
 export async function buildHttp(deps: HttpDeps): Promise<FastifyInstance> {
   const app = Fastify({ logger: deps.logger ?? false, trustProxy: true, bodyLimit: 16 * 1024 });
-  await app.register(cors, { origin: deps.corsOrigin === '*' ? true : deps.corsOrigin.split(',') });
+  await app.register(cors, {
+    origin: deps.corsOrigin === '*' ? true : deps.corsOrigin.split(','),
+    // Default is GET,HEAD,POST only, which silently blocked profile edits (PATCH) and account deletion (DELETE) on the web.
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  });
   await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
 
   app.setErrorHandler((err: any, _req, reply) => {

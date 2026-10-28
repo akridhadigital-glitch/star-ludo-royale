@@ -273,6 +273,25 @@ run('online play (Postgres + Redis)', () => {
     expect(again.json.user.id).toBe(g.user.id);
   });
 
+  it('lets the website (another origin) edit the profile and delete the account', async () => {
+    const res = await fetch(base + '/v1/me', {
+      method: 'OPTIONS',
+      headers: { origin: 'https://example.github.io', 'access-control-request-method': 'PATCH', 'access-control-request-headers': 'authorization,content-type' },
+    });
+    const allowed = (res.headers.get('access-control-allow-methods') ?? '').split(',').map(m => m.trim());
+    expect(allowed).toEqual(expect.arrayContaining(['PATCH', 'DELETE']));
+  });
+
+  it('uses the latest profile name when creating a room', async () => {
+    const g = await guest('OldName');
+    const c = await connect(g.token, g.user.id); // socket connects with the old name
+    await api('/v1/me', { method: 'PATCH', token: g.token, body: { name: 'NewName' } });
+    const r = await c.emit('room:create', { maxPlayers: 2 });
+    expect(r.room.members[0].name).toBe('NewName');
+    await c.emit('room:leave');
+    c.sock.close();
+  });
+
   it('deletes an account on request', async () => {
     const g = await guest('Bye');
     expect((await api('/v1/me', { method: 'DELETE', token: g.token })).status).toBe(204);

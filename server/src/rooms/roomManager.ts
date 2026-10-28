@@ -307,7 +307,9 @@ export class RoomManager {
     if (room.status !== 'playing' || !room.game || room.game.phase === 'over') return;
 
     const m = this.memberForColor(room, currentColor(room.game));
-    const away = !m || m.left || !m.connected || m.missed >= 2;
+    // Away = left, ignored 2 turns, or disconnected and already missed a turn. A brief network
+    // drop still gets the full turn time to reconnect.
+    const away = !m || m.left || m.missed >= 2 || (!m.connected && m.missed >= 1);
     const delay = overrideMs ?? (away ? this.awayMs : this.opts.turnMs);
     room.deadline = this.now() + delay;
     const code = room.code;
@@ -321,7 +323,7 @@ export class RoomManager {
     const room = this.rooms.get(code);
     if (!room || room.status !== 'playing' || !room.game || room.game.moveNo !== moveNo) return;
     const m = this.memberForColor(room, currentColor(room.game));
-    if (m && m.connected && !m.left && m.missed < 2) m.missed++;
+    if (m && !m.left && m.missed < 2) m.missed++;
     if (room.game.phase === 'roll') await this.doRoll(room, null, true);
     else if (room.game.phase === 'move') await this.doMove(room, chooseBotMove(room.game), null, true);
   }

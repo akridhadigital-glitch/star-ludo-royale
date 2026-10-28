@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/online.dart';
 import '../core/palette.dart';
 import '../core/session.dart';
 import '../core/storage.dart';
@@ -24,7 +25,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _firstLaunch());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _firstLaunch();
+      _followInvite();
+    });
   }
 
   Future<void> _firstLaunch() async {
@@ -66,6 +70,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ],
       ),
     );
+  }
+
+  void _followInvite() {
+    final code = pendingJoinCode;
+    if (code == null || !mounted) return;
+    pendingJoinCode = null;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => OnlineMenuScreen(joinCode: code))).then((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override

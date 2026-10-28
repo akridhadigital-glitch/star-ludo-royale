@@ -86,6 +86,9 @@ class GameEventsPayload {
   const GameEventsPayload(this.events, this.game, this.deadline, this.auto);
 }
 
+/// Room code from an invite link (website opened as …/?room=CODE). Consumed by the home screen.
+String? pendingJoinCode;
+
 /// Quick chat: fixed phrases only (no free text → nothing to moderate).
 const Map<String, String> kChatPhrases = {
   'gg': 'Well played! 👏',
