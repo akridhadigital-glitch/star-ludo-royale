@@ -2,6 +2,21 @@
 
 ## Server
 
+### Free forever: Render + Neon
+
+1. **Neon:** go to https://neon.tech and sign up (no card needed). Create a project, region **Singapore**, then copy the **connection string** (`postgresql://...neon.tech/neondb?sslmode=require`).
+2. **Render:** choose New → Blueprint, pick this repo, paste the Neon string into `DATABASE_URL`, then click Apply.
+3. When the service shows **Live**, set the repo variable `API_URL` to its `https://...onrender.com` address and re-run CI. The website and APK are rebuilt to use it.
+
+Free limits:
+
+- **Server:** sleeps after 15 minutes idle; the first request takes about 1 minute to wake it.
+- **Monthly hours:** 750 free instance hours a month, enough for one always-used server.
+- **Neon:** 1 GB storage and 100 compute-hours a month per project.
+- **Live rooms:** with no Redis, a server restart ends rooms that are in progress. Accounts, coins and the leaderboard are safe in Postgres.
+
+### Other options
+
 Any host that runs Docker works: Railway, Render, Fly.io, or a VPS (DigitalOcean or Hetzner, about ₹500–1,000 a month to start).
 
 **Single VPS:**

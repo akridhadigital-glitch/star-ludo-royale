@@ -42,6 +42,8 @@ docs/              protocol, deployment, legal pages
 
 ## Run the server
 
+**Free hosting (no expiry):** Render free web service + Neon free Postgres; see [docs/DEPLOY.md](docs/DEPLOY.md). Redis is optional (`REDIS_URL`); without it, live rooms are kept in memory.
+
 **Docker (easiest):**
 
 ```bash

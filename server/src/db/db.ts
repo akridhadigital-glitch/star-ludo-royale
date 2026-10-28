@@ -4,7 +4,9 @@ import { migrations } from './migrations.js';
 export type Db = pg.Pool;
 
 export function createDb(url: string): Db {
-  return new pg.Pool({ connectionString: url, max: 10 });
+  // Hosted Postgres (Neon, Supabase, Render…) needs TLS; local/docker Postgres doesn't.
+  const local = /@(localhost|127\.0\.0\.1|postgres)(:|\/)/.test(url);
+  return new pg.Pool({ connectionString: url, max: 10, ssl: local || /sslmode=disable/.test(url) ? undefined : { rejectUnauthorized: false } });
 }
 
 export async function migrate(db: Db): Promise<void> {

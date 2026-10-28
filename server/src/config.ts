@@ -5,7 +5,8 @@ const schema = z.object({
   PORT: z.coerce.number().int().default(8080),
   HOST: z.string().default('0.0.0.0'),
   DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().default('redis://localhost:6379'),
+  /** Optional. Without it, live rooms are kept in server memory (fine for a single server). */
+  REDIS_URL: z.string().optional(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   CORS_ORIGIN: z.string().default('*'),
   /** Firebase project id. Only needed for Google sign-in; guest login works without it. */
