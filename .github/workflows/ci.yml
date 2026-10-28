@@ -153,3 +153,25 @@ jobs:
           msg=$(tail -40 out.txt | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           if [ "$code" != "0" ]; then echo "::error title=live smoke::$msg"; else echo "::notice title=live smoke::$msg"; fi
           exit $code
+
+  soak:
+    # Long real-world test against the deployed server. Runs when the commit message contains [soak].
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[soak]')
+    defaults: { run: { working-directory: server } }
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm, cache-dependency-path: server/package-lock.json }
+      - run: npm ci
+      - name: Soak test the deployed server (12 min)
+        env:
+          API_URL: ${{ vars.API_URL || 'https://star-ludo-server.onrender.com' }}
+        run: |
+          set -o pipefail
+          code=0
+          node scripts/soak.mjs "$API_URL" 12 2>&1 | tee out.txt || code=$?
+          msg=$(grep -E "DISCONNECTED|reconnected|=====|duration|latency|delivery|disconnects|reconnects|waking|Error" out.txt | tail -40 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::notice title=soak::$msg"
+          exit $code
