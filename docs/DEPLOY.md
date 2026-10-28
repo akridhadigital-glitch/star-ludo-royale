@@ -15,6 +15,15 @@ Free limits:
 - **Neon:** 1 GB storage and 100 compute-hours a month per project.
 - **Live rooms:** with no Redis, a server restart ends rooms that are in progress. Accounts, coins and the leaderboard are safe in Postgres.
 
+### Restarts and live matches
+
+Every move is snapshotted (in Redis if `REDIS_URL` is set, otherwise in Postgres), so a server
+restart or redeploy doesn't end games: players auto-reconnect within about a second and carry on.
+`render.yaml` has a build filter so only changes under `server/` redeploy the game server.
+
+To measure the live server, push a commit whose message contains `[soak]`. CI then plays a 12-minute
+two-player game against it and reports disconnects and delivery latency in the run's annotations.
+
 ### Other options
 
 Any host that runs Docker works: Railway, Render, Fly.io, or a VPS (DigitalOcean or Hetzner, about ₹500–1,000 a month to start).
