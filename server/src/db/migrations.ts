@@ -30,4 +30,17 @@ export const migrations: { id: string; sql: string }[] = [
       );
     `,
   },
+  {
+    id: '002_unique_names',
+    sql: `
+      ALTER TABLE users ADD COLUMN name_set BOOLEAN NOT NULL DEFAULT false;
+      -- Existing duplicate names (case-insensitive): keep the oldest, give the rest a short suffix.
+      WITH d AS (
+        SELECT id, row_number() OVER (PARTITION BY lower(name) ORDER BY created_at, id) AS rn FROM users
+      )
+      UPDATE users u SET name = left(u.name, 8) || '_' || substr(md5(u.id::text), 1, 5)
+      FROM d WHERE d.id = u.id AND d.rn > 1;
+      CREATE UNIQUE INDEX users_name_lower_uniq ON users (lower(name));
+    `,
+  },
 ];

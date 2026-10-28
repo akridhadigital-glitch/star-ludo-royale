@@ -11,6 +11,7 @@ import '../core/session.dart';
 import '../engine/engine.dart';
 import '../game/game_screen.dart';
 import '../game/match_controller.dart';
+import 'choose_name_screen.dart';
 import '../widgets/common.dart';
 
 /// Create or join a private room.
@@ -49,6 +50,16 @@ class _OnlineMenuScreenState extends State<OnlineMenuScreen> {
     });
     try {
       await OnlineService.instance.connect();
+      // Every online player needs their own unique name before creating or joining a room.
+      if (Session.instance.needsName && mounted) {
+        setState(() => _connecting = false);
+        final named = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => const ChooseNameScreen()));
+        if (!mounted) return;
+        if (named != true) {
+          Navigator.of(context).pop();
+          return;
+        }
+      }
       final room = await OnlineService.instance.resume();
       if (!mounted) return;
       setState(() => _connecting = false);

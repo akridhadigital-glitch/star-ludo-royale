@@ -30,8 +30,15 @@ class _ProfileSheetState extends State<ProfileSheet> {
       return;
     }
     setState(() => _busy = true);
-    await s.updateProfile(name: name, avatar: _avatar);
-    if (mounted) Navigator.pop(context);
+    try {
+      await s.updateProfile(name: name, avatar: _avatar);
+      if (mounted) Navigator.pop(context);
+    } on ApiException catch (e) {
+      // e.g. name already taken: keep the sheet open so they can pick another.
+      if (mounted) showSnack(context, nameErrorText(e.isNetwork ? 'network' : e.code));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _google() async {
@@ -103,6 +110,14 @@ class _ProfileSheetState extends State<ProfileSheet> {
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Palette.gold2, width: 2)),
         ),
       ),
+      if (p != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            p.nameSet ? 'Player ID ${p.shortId} · your name is unique' : 'Player ID ${p.shortId} · choose a unique name to play online',
+            style: const TextStyle(color: Palette.muted, fontSize: 12),
+          ),
+        ),
       if (p != null) ...[
         const SectionLabel('Online stats'),
         Row(children: [

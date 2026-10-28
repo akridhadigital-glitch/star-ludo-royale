@@ -66,7 +66,7 @@ class Session extends ChangeNotifier {
     // Only send a name the player chose; otherwise the server assigns a unique one (e.g. Player4821).
     final chosen = Storage.instance.localName;
     final (token, p) = await api.guestLogin(Storage.instance.deviceId, chosen == 'Player' ? null : chosen);
-    _setAuth(token, p);
+    _setAuth(token, p, keepLocalName: true);
     if (Storage.instance.localAvatar != 0 && p.avatar != Storage.instance.localAvatar) {
       profile = await api.updateProfile(avatar: Storage.instance.localAvatar);
     }
@@ -89,16 +89,26 @@ class Session extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Saves name/avatar. For online players the server checks the name is unique and
+  /// throws [ApiException] (e.g. 409 name_taken) — nothing is changed in that case.
   Future<void> updateProfile({String? name, int? avatar}) async {
-    if (name != null) Storage.instance.localName = name;
-    if (avatar != null) Storage.instance.localAvatar = avatar;
     if (loggedIn) {
-      try {
-        profile = await api.updateProfile(name: name, avatar: avatar);
-      } catch (_) {}
+      // Only send the name if it actually changed (placeholder names can't be re-chosen).
+      final sendName = name != null && name.toLowerCase() != (profile?.name ?? '').toLowerCase() ? name : null;
+      if (sendName != null || avatar != null) {
+        profile = await api.updateProfile(name: sendName, avatar: avatar);
+      }
+      Storage.instance.localName = profile?.name ?? Storage.instance.localName;
+      Storage.instance.localAvatar = profile?.avatar ?? Storage.instance.localAvatar;
+    } else {
+      if (name != null) Storage.instance.localName = name;
+      if (avatar != null) Storage.instance.localAvatar = avatar;
     }
     notifyListeners();
   }
+
+  /// Online play needs a chosen, unique name.
+  bool get needsName => loggedIn && !(profile?.nameSet ?? false);
 
   Future<void> deleteAccount() async {
     await api.deleteAccount();
@@ -106,11 +116,12 @@ class Session extends ChangeNotifier {
     _clear();
   }
 
-  void _setAuth(String token, PlayerProfile p) {
+  void _setAuth(String token, PlayerProfile p, {bool keepLocalName = false}) {
     api.token = token;
     Storage.instance.authToken = token;
     profile = p;
-    Storage.instance.localName = p.name;
+    // A placeholder server name shouldn't overwrite the nickname the player typed offline.
+    if (p.nameSet || !keepLocalName) Storage.instance.localName = p.name;
     Storage.instance.localAvatar = p.avatar;
   }
 

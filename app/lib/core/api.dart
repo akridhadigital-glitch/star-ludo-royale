@@ -23,6 +23,11 @@ class PlayerProfile {
   final int wins;
   final int captures;
   final bool hasGoogle;
+  /// The player has chosen their own unique name (required for online play).
+  final bool nameSet;
+
+  /// Short public ID shown in the profile, e.g. #A1B2C3.
+  String get shortId => '#${id.replaceAll('-', '').substring(0, 6).toUpperCase()}';
 
   const PlayerProfile({
     required this.id,
@@ -34,6 +39,7 @@ class PlayerProfile {
     required this.wins,
     required this.captures,
     required this.hasGoogle,
+    this.nameSet = false,
   });
 
   factory PlayerProfile.fromJson(Map<String, dynamic> j) => PlayerProfile(
@@ -46,6 +52,7 @@ class PlayerProfile {
         wins: (j['wins'] as num).toInt(),
         captures: (j['captures'] as num).toInt(),
         hasGoogle: j['hasGoogle'] as bool? ?? false,
+        nameSet: j['nameSet'] as bool? ?? false,
       );
 }
 
@@ -105,6 +112,12 @@ class Api {
 
   Future<void> deleteAccount() => _send('DELETE', '/v1/me');
 
+  /// Live availability: (available, reason) where reason is name_taken / name_invalid / name_reserved.
+  Future<(bool, String?)> checkName(String name) async {
+    final j = await _send('GET', '/v1/names/check?name=${Uri.encodeQueryComponent(name)}');
+    return (j['available'] as bool? ?? false, j['reason'] as String?);
+  }
+
   Future<List<LeaderRow>> leaderboard() async {
     final j = await _send('GET', '/v1/leaderboard');
     return (j['players'] as List)
@@ -113,3 +126,12 @@ class Api {
         .toList();
   }
 }
+
+/// Friendly text for name errors from the server.
+String nameErrorText(String code) => switch (code) {
+      'name_taken' => 'That name is taken — try another.',
+      'name_reserved' => 'That name is reserved — pick your own.',
+      'name_invalid' || 'bad_request' => 'Use 3–14 letters or numbers (space, _ . - allowed).',
+      'network' => 'No internet connection.',
+      _ => 'Could not save the name ($code).',
+    };

@@ -26,7 +26,18 @@ for (let i = 0; i < 18 && !up; i++) {
 if (!up) throw new Error('server did not become healthy');
 log('health OK');
 
-const guest = name => api('/v1/auth/guest', { deviceId: 'smoke' + randomBytes(12).toString('hex'), name });
+async function patch(path, body, token) {
+  const res = await fetch(base + path, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`${path} → HTTP ${res.status} ${text.slice(0, 200)}`);
+  return JSON.parse(text);
+}
+// Online play requires a unique chosen name, exactly like a real player.
+const guest = async name => {
+  const g = await api('/v1/auth/guest', { deviceId: 'smoke' + randomBytes(12).toString('hex') });
+  const p = await patch('/v1/me', { name: name + randomBytes(3).toString('hex') }, g.token);
+  return { token: g.token, user: p.user };
+};
 const A = await guest('SmokeA'), B = await guest('SmokeB');
 log('guest login OK', A.user.name, B.user.name);
 

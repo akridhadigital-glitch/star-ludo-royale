@@ -10,14 +10,16 @@ export interface User {
   wins: number;
   captures: number;
   hasGoogle: boolean;
+  /** True once the player picked their own (unique) name. Required for online play. */
+  nameSet: boolean;
 }
 
-const COLS = `id, name, avatar, coins, gems, games_played, wins, captures, firebase_uid IS NOT NULL AS has_google`;
+const COLS = `id, name, name_set, avatar, coins, gems, games_played, wins, captures, firebase_uid IS NOT NULL AS has_google`;
 
 function toUser(r: any): User {
   return {
     id: r.id, name: r.name, avatar: Number(r.avatar), coins: Number(r.coins), gems: Number(r.gems),
-    gamesPlayed: Number(r.games_played), wins: Number(r.wins), captures: Number(r.captures), hasGoogle: !!r.has_google,
+    gamesPlayed: Number(r.games_played), wins: Number(r.wins), captures: Number(r.captures), hasGoogle: !!r.has_google, nameSet: !!r.name_set,
   };
 }
 
@@ -29,8 +31,24 @@ export function cleanName(raw: unknown): string | null {
 }
 
 export function defaultGuestName(): string {
-  return `Player${Math.floor(1000 + Math.random() * 9000)}`;
+  return `Player${Math.floor(10000 + Math.random() * 90000)}`;
 }
+
+export class NameError extends Error {
+  constructor(public code: 'name_invalid' | 'name_reserved' | 'name_taken') { super(code); }
+}
+
+const RESERVED = /^(player\d*|computer|bot\s*\d*|admin|administrator|moderator|support|system|star ?ludo.*|null|undefined)$/i;
+
+/** Rules for a chosen name: 3–14 letters/numbers in any script (incl. Hindi vowel signs), space, _ . - ; not reserved. */
+export function validateName(raw: unknown): string {
+  const name = cleanName(raw);
+  if (!name || name.length < 3 || !/^[\p{L}\p{N}][\p{L}\p{M}\p{N} _.\-]*$/u.test(name)) throw new NameError('name_invalid');
+  if (RESERVED.test(name)) throw new NameError('name_reserved');
+  return name;
+}
+
+const isUniqueViolation = (e: any) => e?.code === '23505' && String(e?.constraint ?? '').includes('name');
 
 export class UserRepo {
   constructor(private db: Db) {}
@@ -40,14 +58,34 @@ export class UserRepo {
     return rows[0] ? toUser(rows[0]) : null;
   }
 
-  async upsertGuest(deviceId: string, name: string | null): Promise<User> {
-    const { rows } = await this.db.query(
+  /** Inserts with a generated placeholder name, retrying on the (rare) clash. */
+  private async insertWithGeneratedName(sql: string, params: unknown[]): Promise<User> {
+    for (let i = 0; ; i++) {
+      try {
+        const { rows } = await this.db.query(sql, [...params, defaultGuestName()]);
+        return toUser(rows[0]);
+      } catch (e) {
+        if (!isUniqueViolation(e) || i >= 8) throw e;
+      }
+    }
+  }
+
+  /** Guests start with a placeholder name; they choose a unique one before playing online. */
+  async upsertGuest(deviceId: string): Promise<User> {
+    return this.insertWithGeneratedName(
       `INSERT INTO users (device_id, name) VALUES ($1, $2)
        ON CONFLICT (device_id) DO UPDATE SET last_seen_at = now()
        RETURNING ${COLS}`,
-      [deviceId, name ?? defaultGuestName()],
+      [deviceId],
     );
-    return toUser(rows[0]);
+  }
+
+  async isNameAvailable(name: string, exceptUserId?: string): Promise<boolean> {
+    const { rows } = await this.db.query(
+      `SELECT 1 FROM users WHERE lower(name) = lower($1) AND ($2::uuid IS NULL OR id <> $2::uuid) LIMIT 1`,
+      [name, exceptUserId ?? null],
+    );
+    return rows.length === 0;
   }
 
   async byFirebaseUid(uid: string): Promise<User | null> {
@@ -60,17 +98,23 @@ export class UserRepo {
     return toUser(rows[0]);
   }
 
-  async createFromFirebase(uid: string, name: string | null): Promise<User> {
-    const { rows } = await this.db.query(`INSERT INTO users (firebase_uid, name) VALUES ($1, $2) RETURNING ${COLS}`, [uid, name ?? defaultGuestName()]);
-    return toUser(rows[0]);
+  async createFromFirebase(uid: string): Promise<User> {
+    return this.insertWithGeneratedName(`INSERT INTO users (firebase_uid, name) VALUES ($1, $2) RETURNING ${COLS}`, [uid]);
   }
 
+  /** `name` must already be validated. Throws NameError('name_taken') if someone else has it. */
   async updateProfile(id: string, patch: { name?: string; avatar?: number }): Promise<User | null> {
-    const { rows } = await this.db.query(
-      `UPDATE users SET name = COALESCE($2, name), avatar = COALESCE($3, avatar) WHERE id = $1 RETURNING ${COLS}`,
-      [id, patch.name ?? null, patch.avatar ?? null],
-    );
-    return rows[0] ? toUser(rows[0]) : null;
+    try {
+      const { rows } = await this.db.query(
+        `UPDATE users SET name = COALESCE($2, name), name_set = name_set OR $2 IS NOT NULL,
+           avatar = COALESCE($3, avatar) WHERE id = $1 RETURNING ${COLS}`,
+        [id, patch.name ?? null, patch.avatar ?? null],
+      );
+      return rows[0] ? toUser(rows[0]) : null;
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new NameError('name_taken');
+      throw e;
+    }
   }
 
   async delete(id: string): Promise<void> {

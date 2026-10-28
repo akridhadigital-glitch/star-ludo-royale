@@ -41,10 +41,14 @@ async function api(path: string, opts: { method?: string; token?: string; body?:
   return { status: res.status, json: text ? JSON.parse(text) : null };
 }
 
+/** A guest who has chosen a unique name (required for online play). */
 async function guest(name: string) {
-  const r = await api('/v1/auth/guest', { body: { deviceId: randomBytes(16).toString('hex'), name } });
+  const r = await api('/v1/auth/guest', { body: { deviceId: randomBytes(16).toString('hex') } });
   expect(r.status).toBe(200);
-  return r.json as { token: string; user: { id: string; name: string } };
+  const unique = `${name}${randomBytes(2).toString('hex')}`;
+  const p = await api('/v1/me', { method: 'PATCH', token: r.json.token, body: { name: unique } });
+  expect(p.status).toBe(200);
+  return { token: r.json.token as string, user: p.json.user as { id: string; name: string } };
 }
 
 interface Client {
@@ -104,13 +108,14 @@ run('online play (Postgres + Redis)', () => {
 
   it('guest login is idempotent per device and profile can be edited', async () => {
     const deviceId = randomBytes(16).toString('hex');
-    const a = await api('/v1/auth/guest', { body: { deviceId, name: '  Rahul <b>  ' } });
+    const a = await api('/v1/auth/guest', { body: { deviceId, name: 'ignored' } });
     const b = await api('/v1/auth/guest', { body: { deviceId } });
     expect(a.json.user.id).toBe(b.json.user.id);
-    expect(a.json.user.name).toBe('Rahul b');
+    expect(a.json.user.name).toMatch(/^Player\d{5}$/); // placeholder until they choose
+    expect(a.json.user.nameSet).toBe(false);
     expect(a.json.user.coins).toBe(25000);
-    const p = await api('/v1/me', { method: 'PATCH', token: a.json.token, body: { name: 'Raja', avatar: 3 } });
-    expect(p.json.user).toMatchObject({ name: 'Raja', avatar: 3 });
+    const p = await api('/v1/me', { method: 'PATCH', token: a.json.token, body: { name: '  Raja  ', avatar: 3 } });
+    expect(p.json.user).toMatchObject({ name: 'Raja', avatar: 3, nameSet: true });
     expect((await api('/v1/me')).status).toBe(401);
     expect((await api('/v1/auth/guest', { body: { deviceId: 'short' } })).status).toBe(400);
   });
@@ -314,6 +319,36 @@ run('online play (Postgres + Redis)', () => {
     const r = await c.emit('room:create', { maxPlayers: 2 });
     expect(r.room.members[0].name).toBe('NewName');
     await c.emit('room:leave');
+    c.sock.close();
+  });
+
+  it('requires a unique chosen name before playing online', async () => {
+    const r = await api('/v1/auth/guest', { body: { deviceId: randomBytes(16).toString('hex') } });
+    const c = await connect(r.json.token, r.json.user.id);
+    expect((await c.emit('room:create', { maxPlayers: 2 })).error).toBe('name_required');
+
+    const name = 'Rahul' + randomBytes(2).toString('hex');
+    expect((await api('/v1/me', { method: 'PATCH', token: r.json.token, body: { name } })).status).toBe(200);
+    const ok = await c.emit('room:create', { maxPlayers: 2 });
+    expect(ok.ok).toBe(true);
+    expect(ok.room.members[0].name).toBe(name);
+    await c.emit('room:leave');
+
+    // Names are unique regardless of case
+    const other = await api('/v1/auth/guest', { body: { deviceId: randomBytes(16).toString('hex') } });
+    const taken = await api('/v1/me', { method: 'PATCH', token: other.json.token, body: { name: name.toUpperCase() } });
+    expect(taken.status).toBe(409);
+    expect(taken.json.error).toBe('name_taken');
+    // Re-saving your own name (any case) is fine
+    expect((await api('/v1/me', { method: 'PATCH', token: r.json.token, body: { name: name.toUpperCase() } })).status).toBe(200);
+
+    // Live check endpoint
+    expect((await api('/v1/names/check?name=' + encodeURIComponent(name.toLowerCase()))).json).toMatchObject({ available: false, reason: 'name_taken' });
+    expect((await api('/v1/names/check?name=' + encodeURIComponent(name), { token: r.json.token })).json.available).toBe(true); // it's mine
+    expect((await api('/v1/names/check?name=ab')).json).toMatchObject({ available: false, reason: 'name_invalid' });
+    expect((await api('/v1/names/check?name=Player123')).json).toMatchObject({ available: false, reason: 'name_reserved' });
+    expect((await api('/v1/names/check?name=' + encodeURIComponent('राहुल_07'))).json.available).toBe(true); // Hindi works
+    expect((await api('/v1/me', { method: 'PATCH', token: other.json.token, body: { name: '@@@' } })).status).toBe(400);
     c.sock.close();
   });
 

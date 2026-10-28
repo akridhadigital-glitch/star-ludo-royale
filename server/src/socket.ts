@@ -42,16 +42,18 @@ export function attachSocketHandlers(io: Server, deps: { tokens: Tokens; users: 
     const userId = typeof token === 'string' ? deps.tokens.verify(token) : null;
     const user = userId ? await deps.users.byId(userId).catch(() => null) : null;
     if (!user) return next(new Error('unauthorized'));
-    socket.data.user = { userId: user.id, name: user.name, avatar: user.avatar };
+    socket.data.user = { userId: user.id, name: user.name, avatar: user.avatar, nameSet: user.nameSet };
     next();
   });
 
   io.on('connection', (socket: Socket) => {
-    const me = socket.data.user as { userId: string; name: string; avatar: number };
+    const me = socket.data.user as { userId: string; name: string; avatar: number; nameSet: boolean };
     // Name/avatar can change after the socket connected (Profile → Save); refresh before entering a room.
     const refreshMe = async () => {
       const u = await deps.users.byId(me.userId).catch(() => null);
-      if (u) { me.name = u.name; me.avatar = u.avatar; }
+      if (u) { me.name = u.name; me.avatar = u.avatar; me.nameSet = u.nameSet; }
+      // Online matches need a real, unique name — no anonymous "Player" opponents.
+      if (!me.nameSet) throw new RoomError('name_required');
     };
 
     const bind = async (code: string) => {
@@ -101,14 +103,14 @@ export function attachSocketHandlers(io: Server, deps: { tokens: Tokens; users: 
 
     on('room:create', z.object({ maxPlayers: z.number().int() }), async p => {
       await refreshMe();
-      const room = await rooms.create(me, p.maxPlayers);
+      const room = await rooms.create({ userId: me.userId, name: me.name, avatar: me.avatar }, p.maxPlayers);
       await bind(room.code);
       return { room: roomView(room) };
     });
 
     on('room:join', code, async p => {
       await refreshMe();
-      const room = await rooms.join(me, p.code);
+      const room = await rooms.join({ userId: me.userId, name: me.name, avatar: me.avatar }, p.code);
       await bind(room.code);
       return { room: roomView(room) };
     });

@@ -267,6 +267,7 @@ class OnlineError implements Exception {
         'already_in_room' => 'You are already in another room.',
         'need_two_players' => 'Wait for at least one friend to join.',
         'not_host' => 'Only the host can start the game.',
+        'name_required' => 'Choose your player name first.',
         'timeout' || 'offline' => 'Connection problem. Try again.',
         _ => 'Something went wrong ($code).',
       };
