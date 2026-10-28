@@ -12,6 +12,11 @@ const schema = z.object({
   /** Firebase project id. Only needed for Google sign-in; guest login works without it. */
   FIREBASE_PROJECT_ID: z.string().optional(),
   TURN_SECONDS: z.coerce.number().int().min(5).max(60).default(15),
+  /**
+   * DEMO ONLY. Comma-separated player names whose dice are weighted in their favour.
+   * Rooms with such a player show a visible "DEMO MODE" banner to everyone. Leave empty in production.
+   */
+  DEMO_LUCKY_NAMES: z.string().optional(),
 });
 
 export type Config = z.infer<typeof schema>;

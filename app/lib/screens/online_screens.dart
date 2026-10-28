@@ -301,6 +301,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
                         ]),
                       ),
                     ),
+                    if (room.demoLuckyNames.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _DemoBanner(names: room.demoLuckyNames),
+                    ],
                     const SizedBox(height: 12),
                     _ShareRow(code: room.code),
                     const SizedBox(height: 20),
@@ -439,4 +443,20 @@ class _ShareRow extends StatelessWidget {
       btn('\u{1F517}', 'Copy link', const Color(0xFF334155), () => _copy(context)),
     ]);
   }
+}
+
+class _DemoBanner extends StatelessWidget {
+  const _DemoBanner({required this.names});
+  final List<String> names;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0x33F59E0B),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFF59E0B), width: 2),
+        ),
+        child: Text(demoBannerText(names),
+            textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFFFDE68A), fontWeight: FontWeight.w800, fontSize: 13)),
+      );
 }

@@ -147,6 +147,19 @@ class _GameScreenState extends State<GameScreen> {
                   width: boardSize + 8,
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     _topBar(),
+                    if (c.isOnline && (OnlineService.instance.room?.demoLuckyNames.isNotEmpty ?? false))
+                      Container(
+                        margin: const EdgeInsets.only(top: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0x33F59E0B),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFF59E0B)),
+                        ),
+                        child: Text(demoBannerText(OnlineService.instance.room!.demoLuckyNames),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Color(0xFFFDE68A), fontWeight: FontWeight.w800, fontSize: 12)),
+                      ),
                     const SizedBox(height: 8),
                     _podRow(LudoColor.red, LudoColor.green),
                     const SizedBox(height: 8),

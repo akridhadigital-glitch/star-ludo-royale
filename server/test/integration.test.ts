@@ -324,6 +324,36 @@ run('online play (Postgres + Redis)', () => {
     srv = b2.s; base = b2.url;
   }, 30000);
 
+  it('demo mode: lucky player is flagged to everyone in the room and wins', async () => {
+    await srv.close();
+    let b2 = await boot({ demoLuckyNames: ['demolucky'] });
+    srv = b2.s; base = b2.url;
+    const g = await api('/v1/auth/guest', { body: { deviceId: randomBytes(16).toString('hex') } });
+    await api('/v1/me', { method: 'PATCH', token: g.json.token, body: { name: 'DemoLucky' } });
+    const O = await guest('Opponent');
+    const a = await connect(g.json.token, g.json.user.id), b = await connect(O.token, O.user.id);
+    const { room } = await a.emit('room:create', { maxPlayers: 2 });
+    expect(room.demo).toMatchObject({ luckyNames: ['DemoLucky'] }); // visible already in the lobby
+    const joined = await b.emit('room:join', { code: room.code });
+    expect(joined.room.demo).toMatchObject({ luckyNames: ['DemoLucky'] }); // the opponent sees it before Start
+    await a.emit('room:start');
+    const stopA = autoplay(a), stopB = autoplay(b);
+    await waitFor(() => a.room?.status === 'finished', 60000);
+    stopA(); stopB();
+    expect(a.room.result.ranking[0].userId).toBe(g.json.user.id);
+
+    // Rooms without a listed name are normal (no demo flag)
+    const P = await guest('Plain'), Q = await guest('Plain');
+    const p = await connect(P.token, P.user.id);
+    const r2 = await p.emit('room:create', { maxPlayers: 2 });
+    expect(r2.room.demo).toBeNull();
+    [a, b, p].forEach(x => x.sock.close());
+    void Q;
+    await srv.close();
+    b2 = await boot();
+    srv = b2.s; base = b2.url;
+  }, 90000);
+
   it('links Google to a guest account without losing progress', async () => {
     const g = await guest('Linky');
     expect((await api('/v1/auth/google', { body: { idToken: 'nope-nope-nope-nope-nope' } })).status).toBe(401);

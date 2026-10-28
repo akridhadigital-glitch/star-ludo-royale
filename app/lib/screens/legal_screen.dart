@@ -104,7 +104,7 @@ const _terms = <(String, String)>[
           '• The Game is not an "online money game" under the Promotion and Regulation of Online Gaming Act, 2025.'),
   ('2. Accounts', 'Online play uses a guest profile linked to your device, which you may link to Google. You are responsible for activity on your account. One person should not use multiple accounts to gain an advantage.'),
   ('3. Fair play',
-      'In online matches the server rolls the dice and checks every move; its result is final. Do not cheat, modify the app, use bots or exploits, or disrupt other players. Leaving an online match counts as a loss.'),
+      'In online matches the server rolls the dice randomly and checks every move; its result is final. Demo rooms are the only exception: they display a "DEMO MODE" banner to every player from the waiting room onward, and in them the dice favour the named player. Do not cheat, modify the app, use bots or exploits, or disrupt other players. Leaving an online match counts as a loss.'),
   ('4. Conduct', 'Use a display name that is not offensive, misleading or impersonating anyone. In-game chat is limited to fixed phrases. We may rename, suspend or delete accounts that break these Terms.'),
   ('5. Ownership',
       'Ludo is a traditional board game. The Star Ludo Royale name, logo, artwork, sounds and code belong to ${LegalInfo.operatorName}. The Game is independent and is not affiliated with, endorsed by or connected to any other Ludo app or its owners.'),

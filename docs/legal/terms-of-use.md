@@ -17,7 +17,7 @@ Online play uses a guest profile linked to your device, which you may link to Go
 
 ## 3. Fair play
 
-In online matches the server rolls the dice and checks every move; its result is final. Do not cheat, modify the app, use bots or exploits, or disrupt other players. Leaving an online match counts as a loss.
+In online matches the server rolls the dice randomly and checks every move; its result is final. Demo rooms are the only exception: they display a "DEMO MODE" banner to every player from the waiting room onward, and in them the dice favour the named player. Do not cheat, modify the app, use bots or exploits, or disrupt other players. Leaving an online match counts as a loss.
 
 ## 4. Conduct
 

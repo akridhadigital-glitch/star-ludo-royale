@@ -14,6 +14,8 @@ export function roomView(room: Room) {
     game: room.game,
     deadline: room.deadline,
     result: room.result,
+    // Demo mode is never hidden: every client shows who the dice favour.
+    demo: room.demo ?? null,
   };
 }
 export type RoomViewDto = ReturnType<typeof roomView>;

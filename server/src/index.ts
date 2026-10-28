@@ -36,6 +36,7 @@ export interface ServerOverrides {
   awayMs?: number;
   turnMs?: number;
   authRateLimit?: number;
+  demoLuckyNames?: string[];
 }
 
 /** Boots the whole server. Used by main() and by the integration tests. */
@@ -69,6 +70,7 @@ export async function startServer(config: Config, o: ServerOverrides = {}) {
   const rooms = new RoomManager({
     store: roomStore, emitter, recordMatch: recordMatchWith(users),
     turnMs: o.turnMs ?? config.TURN_SECONDS * 1000, awayMs: o.awayMs, rollDice: o.rollDice, log: (m, e) => log(m, e),
+    demoLuckyNames: o.demoLuckyNames ?? (config.DEMO_LUCKY_NAMES ?? '').split(',').map(n => n.trim().toLowerCase()).filter(Boolean),
   });
 
   const http = await buildHttp({ users, tokens, google, rooms, corsOrigin: config.CORS_ORIGIN, logger: config.NODE_ENV !== 'test', authRateLimit: o.authRateLimit });

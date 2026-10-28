@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import {
-  applyMove, applyRoll, chooseBotMove, createGame, currentColor, forceWin, ranking, RuleError, seatColors,
+  applyMove, applyRoll, chooseBotMove, createGame, currentColor, forceWin, movableTokens, ranking, RuleError, seatColors,
   type Color, type GameEvent, type GameState,
 } from '../engine/engine.js';
 import type { RoomStore } from './roomStore.js';
@@ -42,6 +42,8 @@ export interface Room {
   createdAt: number;
   startedAt: number | null;
   result: RoomResult | null;
+  /** Demo mode: these players get favourable dice. Always shown to every player in the room. */
+  demo?: { luckyUserIds: string[]; luckyNames: string[] } | null;
 }
 
 export interface PlayerRef { userId: string; name: string; avatar: number }
@@ -64,6 +66,8 @@ export interface RoomManagerOptions {
   /** Delay before auto-playing for a player who is disconnected / away. */
   awayMs?: number;
   rollDice?: () => number;
+  /** DEMO ONLY: lower-cased names that get favourable dice (rooms show a visible banner). */
+  demoLuckyNames?: string[];
   now?: () => number;
   log?: (msg: string, extra?: unknown) => void;
 }
@@ -159,6 +163,7 @@ export class RoomManager {
       game: null, deadline: null, createdAt: this.now(), startedAt: null, result: null,
     };
     this.rooms.set(room.code, room);
+    this.refreshDemo(room);
     await this.opts.store.setUserRoom(p.userId, room.code);
     await this.commit(room);
     return room;
@@ -177,6 +182,7 @@ export class RoomManager {
     if (room.status !== 'lobby') throw new RoomError('game_already_started');
     if (room.members.length >= room.maxPlayers) throw new RoomError('room_full');
     room.members.push({ ...p, color: null, connected: true, left: false, missed: 0 });
+    this.refreshDemo(room);
     await this.opts.store.setUserRoom(p.userId, room.code);
     await this.commit(room);
     return room;
@@ -192,6 +198,7 @@ export class RoomManager {
     room.game = createGame(colors);
     // Who goes first is random (crypto RNG) — the room creator gets no head start.
     room.game.turn = randomInt(colors.length);
+    this.refreshDemo(room);
     room.status = 'playing';
     room.startedAt = this.now();
     this.schedule(room);
@@ -210,6 +217,7 @@ export class RoomManager {
       room.members = room.members.filter(x => x.userId !== userId);
       if (room.members.length === 0) { await this.destroy(room); return; }
       if (room.hostId === userId) room.hostId = room.members[0].userId;
+      this.refreshDemo(room);
       await this.commit(room);
       return;
     }
@@ -237,6 +245,12 @@ export class RoomManager {
     if (connected) m.missed = 0;
     if (room.status === 'playing' && room.game && currentColor(room.game) === m.color) this.schedule(room);
     await this.commit(room);
+  }
+
+  /** Demo mode is visible from the lobby on, so players see it before agreeing to start. */
+  private refreshDemo(room: Room): void {
+    const lucky = room.members.filter(m => !m.left && this.opts.demoLuckyNames?.includes(m.name.toLowerCase()));
+    room.demo = lucky.length ? { luckyUserIds: lucky.map(m => m.userId), luckyNames: lucky.map(m => m.name) } : null;
   }
 
   // ---------- gameplay ----------
@@ -279,7 +293,9 @@ export class RoomManager {
   private async doRoll(room: Room, actor: string | null, auto: boolean): Promise<void> {
     const game = room.game!;
     let t;
-    try { t = applyRoll(game, this.rollDice()); } catch (e) { throw this.wrap(e); }
+    const roller = this.memberForColor(room, currentColor(game));
+    const value = roller && room.demo?.luckyUserIds.includes(roller.userId) ? luckyRoll(game) : this.rollDice();
+    try { t = applyRoll(game, value); } catch (e) { throw this.wrap(e); }
     room.game = t.state;
     this.schedule(room, auto && t.state.phase === 'move' ? 700 : undefined);
     this.opts.emitter.gameEvents(room.code, { events: t.events, game: t.state, deadline: room.deadline, actor, auto });
@@ -400,4 +416,35 @@ export class RoomManager {
     this.timers.clear();
     this.cleanup.clear();
   }
+}
+
+/**
+ * DEMO MODE ONLY: picks the dice value that helps the current player most
+ * (win > capture > reach home > leave the yard > progress; never a third six).
+ * Used only for players listed in DEMO_LUCKY_NAMES, in rooms that show a demo banner.
+ */
+export function luckyRoll(game: GameState): number {
+  let best = 1, bestScore = -Infinity;
+  for (let v = 1; v <= 6; v++) {
+    if (v === 6 && game.sixStreak >= 2) continue;
+    const r = applyRoll(game, v);
+    let score = -1000; // no move possible
+    if (r.state.phase === 'move') {
+      for (const tok of movableTokens(r.state, currentColor(game), v)) {
+        const m = applyMove(r.state, tok);
+        const types = new Set(m.events.map(e => e.type));
+        let sc = 0;
+        if (types.has('over')) sc += 100000;
+        if (types.has('captured')) sc += 800;
+        if (types.has('home')) sc += 600;
+        const before = game.tokens[currentColor(game)]![tok];
+        if (before === -1) sc += 500;
+        sc += m.state.tokens[currentColor(game)]!.reduce((a, s) => a + s + 1, 0);
+        if (types.has('bonus')) sc += 150;
+        score = Math.max(score, sc);
+      }
+    }
+    if (score > bestScore) { bestScore = score; best = v; }
+  }
+  return best;
 }

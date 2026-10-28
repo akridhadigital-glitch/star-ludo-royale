@@ -37,8 +37,11 @@ class RoomInfo {
   final GameState? game;
   final int? deadline;
   final RoomResult? result;
+  /// Demo mode: these players get favourable dice. Shown to everyone in the room.
+  final List<String> demoLuckyNames;
 
-  const RoomInfo(this.code, this.hostId, this.maxPlayers, this.status, this.members, this.game, this.deadline, this.result);
+  const RoomInfo(this.code, this.hostId, this.maxPlayers, this.status, this.members, this.game, this.deadline, this.result,
+      [this.demoLuckyNames = const []]);
 
   factory RoomInfo.fromJson(Map<String, dynamic> j) {
     final res = j['result'] as Map<String, dynamic>?;
@@ -71,6 +74,7 @@ class RoomInfo {
                   MapEntry(k, (((v as Map)['coins'] as num).toInt(), (v['gems'] as num).toInt()))),
               res['reason'] as String,
             ),
+      ((j['demo'] as Map<String, dynamic>?)?['luckyNames'] as List? ?? const []).map((e) => e as String).toList(),
     );
   }
 
@@ -292,3 +296,7 @@ class OnlineError implements Exception {
   @override
   String toString() => message;
 }
+
+/// Banner shown in the lobby and during the match when a room runs in demo mode.
+String demoBannerText(List<String> names) =>
+    '🧪 DEMO MODE: dice favour ${names.join(', ')}. This is not a fair match.';
