@@ -79,7 +79,7 @@ export class UserRepo {
 
   async leaderboard(limit = 50): Promise<{ rank: number; name: string; avatar: number; wins: number; gamesPlayed: number }[]> {
     const { rows } = await this.db.query(
-      `SELECT name, avatar, wins, games_played FROM users WHERE games_played > 0 ORDER BY wins DESC, games_played ASC, created_at ASC LIMIT $1`,
+      `SELECT name, avatar, wins, games_played FROM users WHERE games_played > 0 AND (device_id IS NULL OR device_id NOT LIKE 'smoke%') ORDER BY wins DESC, games_played ASC, created_at ASC LIMIT $1`,
       [limit],
     );
     return rows.map((r, i) => ({ rank: i + 1, name: r.name, avatar: Number(r.avatar), wins: Number(r.wins), gamesPlayed: Number(r.games_played) }));
