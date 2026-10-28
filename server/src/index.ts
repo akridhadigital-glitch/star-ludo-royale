@@ -35,6 +35,7 @@ export interface ServerOverrides {
   rollDice?: () => number;
   awayMs?: number;
   turnMs?: number;
+  authRateLimit?: number;
 }
 
 /** Boots the whole server. Used by main() and by the integration tests. */
@@ -61,7 +62,7 @@ export async function startServer(config: Config, o: ServerOverrides = {}) {
     turnMs: o.turnMs ?? config.TURN_SECONDS * 1000, awayMs: o.awayMs, rollDice: o.rollDice, log: (m, e) => log(m, e),
   });
 
-  const http = await buildHttp({ users, tokens, google, rooms, corsOrigin: config.CORS_ORIGIN, logger: config.NODE_ENV !== 'test' });
+  const http = await buildHttp({ users, tokens, google, rooms, corsOrigin: config.CORS_ORIGIN, logger: config.NODE_ENV !== 'test', authRateLimit: o.authRateLimit });
   log = (m, e) => http.log.error({ err: e }, m);
   io = createIo(http.server, config.CORS_ORIGIN);
   attachSocketHandlers(io, { tokens, users, rooms, log });

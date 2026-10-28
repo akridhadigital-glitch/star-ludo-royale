@@ -68,6 +68,9 @@ export interface RoomManagerOptions {
   log?: (msg: string, extra?: unknown) => void;
 }
 
+/** Consecutive timed-out turns before a player is removed (Ludo King style). */
+export const KICK_AFTER_MISSES = { connected: 3, disconnected: 5 };
+
 export const REWARDS = { winner: { coins: 2500, gems: 10 }, other: { coins: 250, gems: 0 } };
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const FINISHED_ROOM_TTL_MS = 10 * 60 * 1000;
@@ -298,7 +301,11 @@ export class RoomManager {
     return e instanceof RuleError ? new RoomError(e.code) : (e as Error);
   }
 
-  /** Turn timer. Connected players get the full turn; away players are auto-played quickly. */
+  /**
+   * Turn timer. A player who is in the game ALWAYS gets the full turn time; the server only
+   * acts when it runs out. Quick auto-play is only for players who left, or who are disconnected
+   * and already missed a turn (so the others aren't kept waiting).
+   */
   private schedule(room: Room, overrideMs?: number): void {
     const prev = this.timers.get(room.code);
     if (prev) clearTimeout(prev);
@@ -307,23 +314,31 @@ export class RoomManager {
     if (room.status !== 'playing' || !room.game || room.game.phase === 'over') return;
 
     const m = this.memberForColor(room, currentColor(room.game));
-    // Away = left, ignored 2 turns, or disconnected and already missed a turn. A brief network
-    // drop still gets the full turn time to reconnect.
-    const away = !m || m.left || m.missed >= 2 || (!m.connected && m.missed >= 1);
-    const delay = overrideMs ?? (away ? this.awayMs : this.opts.turnMs);
+    const quick = !m || m.left || (!m.connected && m.missed >= 1);
+    const delay = overrideMs ?? (quick ? this.awayMs : this.opts.turnMs);
+    // Only a real timeout counts as a missed turn — not the server finishing a move it rolled itself.
+    const countsAsMiss = overrideMs === undefined;
     room.deadline = this.now() + delay;
     const code = room.code;
     const moveNo = room.game.moveNo;
     this.timers.set(code, setTimeout(() => {
-      this.autoPlay(code, moveNo).catch(err => this.log('autoPlay failed', err));
+      this.autoPlay(code, moveNo, countsAsMiss).catch(err => this.log('autoPlay failed', err));
     }, delay));
   }
 
-  private async autoPlay(code: string, moveNo: number): Promise<void> {
+  private async autoPlay(code: string, moveNo: number, countsAsMiss = true): Promise<void> {
     const room = this.rooms.get(code);
     if (!room || room.status !== 'playing' || !room.game || room.game.moveNo !== moveNo) return;
     const m = this.memberForColor(room, currentColor(room.game));
-    if (m && !m.left && m.missed < 2) m.missed++;
+    if (m && !m.left && countsAsMiss) {
+      m.missed++;
+      const limit = m.connected ? KICK_AFTER_MISSES.connected : KICK_AFTER_MISSES.disconnected;
+      if (m.missed >= limit) {
+        // Inactive too long: remove them (counts as leaving). If one player remains, they win.
+        await this.leave(m.userId, code);
+        return;
+      }
+    }
     if (room.game.phase === 'roll') await this.doRoll(room, null, true);
     else if (room.game.phase === 'move') await this.doMove(room, chooseBotMove(room.game), null, true);
   }

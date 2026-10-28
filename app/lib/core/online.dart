@@ -15,7 +15,9 @@ class RoomMember {
   final bool connected;
   final bool left;
   final bool away;
-  const RoomMember(this.userId, this.name, this.avatar, this.color, this.connected, this.left, this.away);
+  /// Consecutive turns this player let time out (3 = removed from the match).
+  final int missed;
+  const RoomMember(this.userId, this.name, this.avatar, this.color, this.connected, this.left, this.away, [this.missed = 0]);
 }
 
 class RoomResult {
@@ -53,6 +55,7 @@ class RoomInfo {
                 m['connected'] as bool? ?? false,
                 m['left'] as bool? ?? false,
                 m['away'] as bool? ?? false,
+                (m['missed'] as num?)?.toInt() ?? 0,
               ))
           .toList(),
       j['game'] == null ? null : GameState.fromJson(j['game'] as Map<String, dynamic>),

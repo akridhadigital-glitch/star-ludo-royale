@@ -509,9 +509,16 @@ class OnlineMatchController extends MatchController {
   @override
   bool get canRoll => super.canRoll && !_sending;
 
+  bool _missedNotice = false;
+
   void _onEvents(GameEventsPayload p) {
     if (p.game.moveNo <= _lastMoveNo) return; // already have it (e.g. after a resume)
     _lastMoveNo = p.game.moveNo;
+    // My timer ran out and the server rolled for me: tell the player clearly.
+    if (p.auto && p.events.isNotEmpty && p.events.first.type == EventType.rolled && p.events.first.color == myColor) {
+      _missedNotice = true;
+      emitToast(BoardToast('⏰ Time up!', myColor));
+    }
     enqueue(p.events, p.game, deadlineMs: p.deadline);
   }
 
@@ -544,6 +551,14 @@ class OnlineMatchController extends MatchController {
     }
     if (room.status == 'finished' && room.result != null && result == null) {
       _scheduleResult(room);
+    }
+    // Removed after 3 missed turns while the others play on: end the game for this player.
+    final me = seats.where((s) => s.kind == SeatKind.me);
+    if (room.status == 'playing' && result == null && me.isNotEmpty && me.first.left) {
+      final order = ranking(state);
+      result = MatchResult(order, order.first, false, true, null, 'removed');
+      deadline = null;
+      Sound.instance.play(Sfx.lose);
     }
     notifyListeners();
   }
@@ -623,6 +638,15 @@ class OnlineMatchController extends MatchController {
   @override
   void onSettled() {
     super.onSettled();
+    if (_missedNotice) {
+      _missedNotice = false;
+      var missed = 1;
+      for (final m in online.room?.members ?? const <RoomMember>[]) {
+        if (m.userId == online.myUserId) missed = m.missed;
+      }
+      hint = '⏰ Time ran out — turn auto-played ($missed/3). Miss 3 and you\'re out.';
+      notifyListeners();
+    }
     if (state.phase == Phase.roll && isMyTurn) Sound.instance.play(Sfx.turn);
     if (online.room?.status == 'finished' && online.room?.result != null && result == null) _setResult(online.room!);
   }

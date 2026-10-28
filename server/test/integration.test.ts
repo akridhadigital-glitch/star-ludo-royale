@@ -26,7 +26,7 @@ const fakeGoogle = {
 
 async function boot(overrides: Parameters<typeof startServer>[1] = {}) {
   const config = loadConfig({ DATABASE_URL: DB!, REDIS_URL: REDIS!, JWT_SECRET: 'x'.repeat(40), PORT: '0', NODE_ENV: 'test' } as any);
-  const s = await startServer(config, { google: fakeGoogle, turnMs: 600, awayMs: 30, ...overrides });
+  const s = await startServer(config, { google: fakeGoogle, turnMs: 600, awayMs: 30, authRateLimit: 1000, ...overrides });
   const addr = s.http.server.address() as { port: number };
   return { s, url: `http://127.0.0.1:${addr.port}` };
 }
@@ -63,7 +63,7 @@ async function connect(token: string, userId: string): Promise<Client> {
     emit: (ev, p = {}) => new Promise(res => sock.emit(ev, p, res)),
   };
   sock.on('room:update', r => { c.room = r; c.game = r.game; });
-  sock.on('game:events', e => { c.events.push(e); c.game = e.game; });
+  sock.on('game:events', e => { c.events.push({ ...e, at: Date.now() }); c.game = e.game; });
   await new Promise<void>((res, rej) => { sock.on('connect', () => res()); sock.on('connect_error', rej); });
   return c;
 }
@@ -210,6 +210,31 @@ run('online play (Postgres + Redis)', () => {
     await waitFor(() => b.events.some(e => e.auto && e.events[0]?.type === 'rolled'), 5000);
     a.sock.close(); b.sock.close();
   });
+
+  it('never speeds up for a present player, and removes them after 3 missed turns', async () => {
+    const A = await guest('Active'); const B = await guest('Idle');
+    const a = await connect(A.token, A.user.id); const b = await connect(B.token, B.user.id);
+    const { room } = await a.emit('room:create', { maxPlayers: 2 });
+    await b.emit('room:join', { code: room.code });
+    await a.emit('room:start');
+    await waitFor(() => a.room?.status === 'playing');
+
+    const stopA = autoplay(a); // A plays normally; B is connected but never taps
+    await waitFor(() => a.room?.status === 'finished', 25000);
+    stopA();
+
+    expect(a.room.result.reason).toBe('opponents_left');
+    expect(a.room.result.ranking[0].userId).toBe(A.user.id);
+    // B timed out on 3 turns: the first two were auto-played, the third removed them.
+    const autoRolls = a.events.filter(e => e.auto && e.events[0]?.type === 'rolled' && e.events[0].color === 'yellow');
+    expect(autoRolls.length).toBe(2);
+    // Every one of B's auto-rolls waited the FULL turn (600 ms in tests), never the quick 30 ms.
+    for (const r of autoRolls) {
+      const prev = a.events.filter(e => e.at < r.at).at(-1);
+      expect(r.at - prev.at).toBeGreaterThanOrEqual(550);
+    }
+    a.sock.close(); b.sock.close();
+  }, 30000);
 
   it('leaving a 2-player match forfeits it to the opponent', async () => {
     const A = await guest('Stay'); const B = await guest('Quit');

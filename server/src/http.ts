@@ -13,6 +13,8 @@ export interface HttpDeps {
   google: GoogleVerifier | null;
   rooms: RoomManager;
   corsOrigin: string;
+  /** Logins per minute per IP (anti-abuse). */
+  authRateLimit?: number;
   logger?: boolean;
 }
 
@@ -27,7 +29,7 @@ export async function buildHttp(deps: HttpDeps): Promise<FastifyInstance> {
     // Default is GET,HEAD,POST only, which silently blocked profile edits (PATCH) and account deletion (DELETE) on the web.
     methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
-  await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
+  await app.register(rateLimit, { max: Math.max(120, (deps.authRateLimit ?? 20) * 6), timeWindow: '1 minute' });
 
   app.setErrorHandler((err: any, _req, reply) => {
     if (err instanceof HttpError) return reply.status(err.status).send({ error: err.code });
@@ -49,7 +51,7 @@ export async function buildHttp(deps: HttpDeps): Promise<FastifyInstance> {
 
   app.get('/health', async () => ({ ok: true }));
 
-  const authLimit = { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } };
+  const authLimit = { config: { rateLimit: { max: deps.authRateLimit ?? 20, timeWindow: '1 minute' } } };
 
   app.post('/v1/auth/guest', authLimit, async req => {
     const body = z.object({ deviceId: z.string().min(16).max(128).regex(/^[A-Za-z0-9_-]+$/), name: z.string().optional() }).parse(req.body);

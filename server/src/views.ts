@@ -8,7 +8,8 @@ export function roomView(room: Room) {
     maxPlayers: room.maxPlayers,
     status: room.status,
     members: room.members.map(m => ({
-      userId: m.userId, name: m.name, avatar: m.avatar, color: m.color, connected: m.connected, left: m.left, away: m.missed >= 2,
+      userId: m.userId, name: m.name, avatar: m.avatar, color: m.color, connected: m.connected, left: m.left,
+      away: m.missed >= 1, missed: m.missed,
     })),
     game: room.game,
     deadline: room.deadline,

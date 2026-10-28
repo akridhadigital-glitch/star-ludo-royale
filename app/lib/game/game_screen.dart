@@ -203,7 +203,7 @@ class _GameScreenState extends State<GameScreen> {
         : !seat.connected && c.isOnline
             ? 'Reconnecting…'
             : seat.away
-                ? 'Away · auto'
+                ? '⏰ Missed turn'
                 : '🏠 $finished/4';
     final avatar = TimerRing(
       size: 42,
@@ -481,7 +481,11 @@ class _ResultDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final medals = ['🥇', '🥈', '🥉', '🎖'];
     final winnerSeat = controller.seatOf(result.winner);
-    final title = result.hasMe ? (result.iWon ? 'You Win!' : '${winnerSeat.name} Wins!') : '${winnerSeat.name} Wins!';
+    final title = result.reason == 'removed'
+        ? 'Removed from match'
+        : result.hasMe
+            ? (result.iWon ? 'You Win!' : '${winnerSeat.name} Wins!')
+            : '${winnerSeat.name} Wins!';
     final reward = result.reward;
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -496,6 +500,12 @@ class _ResultDialog extends StatelessWidget {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Text(result.hasMe && !result.iWon ? '🎲' : '👑', textAlign: TextAlign.center, style: const TextStyle(fontSize: 54)),
           GoldTitle(title, size: 24),
+          if (result.reason == 'removed')
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('You missed 3 turns in a row, so the game continued without you.',
+                  textAlign: TextAlign.center, style: TextStyle(color: Palette.muted)),
+            ),
           if (result.reason == 'opponents_left')
             const Padding(
               padding: EdgeInsets.only(top: 6),
