@@ -53,6 +53,12 @@ jobs:
             rm -f test/widget_test.dart
           fi
       - run: flutter pub get
+      - name: App icon, splash and name
+        run: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+          sed -i 's#android:label="[^"]*"#android:label="Star Ludo Royale"#' android/app/src/main/AndroidManifest.xml
+          grep -n 'android:label' android/app/src/main/AndroidManifest.xml
       - name: Analyze
         run: |
           set -o pipefail
@@ -112,6 +118,12 @@ jobs:
             rm -f test/widget_test.dart
           fi
       - run: flutter pub get
+      - name: Web icons and name
+        run: |
+          dart run flutter_launcher_icons -f flutter_launcher_icons_web.yaml
+          sed -i 's#"name": "[^"]*"#"name": "Star Ludo Royale"#; s#"short_name": "[^"]*"#"short_name": "Star Ludo"#; s#"description": "[^"]*"#"description": "Classic Ludo with friends — free, no real money."#' web/manifest.json
+          sed -i 's#<meta name="apple-mobile-web-app-title" content="[^"]*">#<meta name="apple-mobile-web-app-title" content="Star Ludo Royale">#' web/index.html
+          cp web/icons/Icon-192.png web/favicon.png
       - name: Build web
         env:
           API_URL: ${{ vars.API_URL || 'https://star-ludo-server.onrender.com' }}

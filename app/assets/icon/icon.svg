@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 132 132"><rect x="-6" y="-6" width="132" height="132" fill="#0F172A"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#FEF9C3"/><stop offset=".35" stop-color="#FACC15"/><stop offset=".7" stop-color="#CA8A04"/><stop offset="1" stop-color="#854D0E"/></linearGradient></defs>
+<rect x="3" y="3" width="114" height="114" rx="28" fill="url(#g)" stroke="#713F12" stroke-width="3"/>
+<rect x="11" y="11" width="98" height="98" rx="21" fill="#0F172A"/>
+<rect x="15" y="15" width="43" height="43" rx="14" fill="#E11D48"/><circle cx="36.5" cy="36.5" r="9" fill="#fff" fill-opacity=".92"/><rect x="62" y="15" width="43" height="43" rx="14" fill="#16A34A"/><circle cx="83.5" cy="36.5" r="9" fill="#fff" fill-opacity=".92"/><rect x="15" y="62" width="43" height="43" rx="14" fill="#2563EB"/><circle cx="36.5" cy="83.5" r="9" fill="#fff" fill-opacity=".92"/><rect x="62" y="62" width="43" height="43" rx="14" fill="#EAB308"/><circle cx="83.5" cy="83.5" r="9" fill="#fff" fill-opacity=".92"/>
+<circle cx="60" cy="60" r="21" fill="#fff" stroke="#CA8A04" stroke-width="3"/>
+<polygon points="60.00,43.00 64.23,54.18 76.17,54.75 66.85,62.22 69.99,73.75 60.00,67.20 50.01,73.75 53.15,62.22 43.83,54.75 55.77,54.18" fill="url(#g)" stroke="#A16207" stroke-width="1.5" stroke-linejoin="round"/></svg>

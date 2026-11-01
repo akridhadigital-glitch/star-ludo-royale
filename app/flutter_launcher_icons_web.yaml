@@ -1,0 +1,10 @@
+# Web icons only (the web CI job has no android/ios folders).
+flutter_launcher_icons:
+  android: false
+  ios: false
+  image_path: assets/icon/icon.png
+  web:
+    generate: true
+    image_path: assets/icon/icon.png
+    background_color: "#0F172A"
+    theme_color: "#0F172A"
