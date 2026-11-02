@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
+import '../core/online.dart';
 import '../core/palette.dart';
 import '../core/session.dart';
 import '../widgets/common.dart';
@@ -45,13 +46,43 @@ class _ProfileSheetState extends State<ProfileSheet> {
     setState(() => _busy = true);
     try {
       await s.signInWithGoogle();
-      if (mounted) showSnack(context, 'Google account linked. Your progress is safe.');
+      if (mounted) {
+        setState(() {
+          _name.text = s.displayName;
+          _avatar = s.avatar;
+        });
+        showSnack(context, 'Signed in with Google as ${s.displayName}.');
+      }
     } on ApiException catch (e) {
       if (mounted) showSnack(context, e.isNetwork ? 'No internet connection.' : 'Google sign-in failed (${e.code}).');
     } catch (_) {
       if (mounted) showSnack(context, 'Google sign-in was cancelled.');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _logout() async {
+    final google = s.profile?.hasGoogle ?? false;
+    final inMatch = OnlineService.instance.room != null;
+    final ok = await confirmDialog(context,
+        title: 'Log out?',
+        message: [
+          if (google)
+            'You can sign back in any time with the same Google account.'
+          else
+            'This guest account is not linked to Google, so it will be lost (name, coins and stats). Link Google first to keep it.',
+          if (inMatch) 'You will also leave your current online room.',
+        ].join('\n\n'),
+        yes: 'Log out');
+    if (!ok) return;
+    setState(() => _busy = true);
+    if (inMatch) await OnlineService.instance.leave();
+    OnlineService.instance.disconnect();
+    await s.logout();
+    if (mounted) {
+      Navigator.pop(context);
+      showSnack(context, 'Logged out. Play online to start as a new player${s.firebaseReady ? ', or sign in with Google' : ''}.');
     }
   }
 
@@ -129,12 +160,25 @@ class _ProfileSheetState extends State<ProfileSheet> {
       const SizedBox(height: 16),
       GoldButton('SAVE', busy: _busy, onPressed: _save),
       const SizedBox(height: 10),
-      if (s.firebaseReady && !(p?.hasGoogle ?? false))
+      if (s.firebaseReady && !s.loggedIn)
+        GhostButton('Sign in with Google', onPressed: _busy ? null : _google),
+      if (s.firebaseReady && s.loggedIn && !(p?.hasGoogle ?? false)) ...[
         GhostButton('Link Google account (keep progress on any phone)', onPressed: _busy ? null : _google),
+        const Padding(
+          padding: EdgeInsets.only(top: 4, bottom: 4),
+          child: Text('Already have a player on Google? This switches to it.',
+              textAlign: TextAlign.center, style: TextStyle(color: Palette.muted, fontSize: 12)),
+        ),
+      ],
       if (p?.hasGoogle ?? false)
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 8),
           child: Text('✓ Google account linked', textAlign: TextAlign.center, style: TextStyle(color: Palette.emerald, fontWeight: FontWeight.w700)),
+        ),
+      if (s.loggedIn)
+        TextButton(
+          onPressed: _busy ? null : _logout,
+          child: const Text('Log out', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
         ),
       if (s.loggedIn)
         TextButton(

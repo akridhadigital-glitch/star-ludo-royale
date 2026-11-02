@@ -31,6 +31,13 @@ class Storage {
   String get localName => _p.getString('local_name') ?? 'Player';
   set localName(String v) => _p.setString('local_name', v);
 
+  /// Log out: forget this device's player so the next online login is a brand-new guest.
+  Future<void> resetIdentity() async {
+    for (final k in ['device_id', 'auth_token', 'local_name', 'local_avatar']) {
+      await _p.remove(k);
+    }
+  }
+
   int get localAvatar => _p.getInt('local_avatar') ?? 0;
   set localAvatar(int v) => _p.setInt('local_avatar', v);
 

@@ -78,9 +78,8 @@ class Session extends ChangeNotifier {
   /// (keeping coins and stats), or switches to the player already linked to that Google account.
   Future<void> signInWithGoogle() async {
     if (!firebaseReady) throw ApiException(501, 'google_not_configured');
-    try {
-      await ensureLoggedIn(); // so Google can be linked to the existing guest progress
-    } catch (_) {}
+    // If a guest is logged in, the server links Google to it (keeping progress);
+    // if that Google account already has a player, it switches to that player.
     final cred = await FirebaseAuth.instance.signInWithProvider(GoogleAuthProvider());
     final idToken = await cred.user?.getIdToken();
     if (idToken == null) throw ApiException(401, 'google_failed');
@@ -113,6 +112,14 @@ class Session extends ChangeNotifier {
   Future<void> deleteAccount() async {
     await api.deleteAccount();
     if (firebaseReady) await FirebaseAuth.instance.signOut().catchError((_) {});
+    _clear();
+  }
+
+  /// Signs out on this device. A Google-linked player can sign back in with Google;
+  /// a guest-only player starts fresh (the old guest can't be recovered).
+  Future<void> logout() async {
+    if (firebaseReady) await FirebaseAuth.instance.signOut().catchError((_) {});
+    await Storage.instance.resetIdentity();
     _clear();
   }
 
